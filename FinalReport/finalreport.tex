@@ -1,0 +1,257 @@
+% this is a comment in latex
+% substitute this documentclass definition for uncommented one
+% to switch between single and double column mode
+\documentclass[11pt,twocolumn]{article}
+%\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+\usepackage{subfigure,indentfirst}
+% for url
+\usepackage{hyperref}
+% for underlined text
+\usepackage[normalem]{ulem}
+% for including pdf figures
+\usepackage{graphicx}
+
+% my own versions: my_enumerate and my_itemize
+\newenvironment{my_enumerate}{
+  \begin{enumerate}
+    \setlength{\itemsep}{1pt}
+      \setlength{\parskip}{0pt}
+\setlength{\parsep}{0pt}}{\end{enumerate}
+}
+
+\newenvironment{my_itemize}{
+  \begin{itemize}
+    \setlength{\itemsep}{1pt}
+      \setlength{\parskip}{0pt}
+\setlength{\parsep}{0pt}}{\end{itemize}
+}
+
+% this starts the document
+\begin{document}
+
+\title{CS87 Project Report: 
+A Concise and Meaningful Paper Title}
+
+\author{Author1, Author2, Author3 \\
+Computer Science Department, Swarthmore College, Swarthmore, PA  19081}
+
+\maketitle
+
+\begin{abstract}
+
+The abstract is a brief summary of your work. It should be written to make the
+reader want to read the rest of your paper. Briefly state the basic contents
+and conclusions of your paper: the problem you are solving, why the reader
+should care about this problem, your unique solution and/or implementation,
+and the main results and and contributions of your work.
+
+  For writing organization resources, see my
+  CS Research and Writing Guide:
+
+\noindent {\small \url{www.cs.swarthmore.edu/~newhall/thesisguide} } 
+
+And, off my help pages~\cite{newhall:help} are links to other resources 
+for technical writing, including a writing style guide and information
+about Unix tools for creating and editing figures.  
+
+\end{abstract}
+
+
+\section {Introduction} 
+
+Introduction 
+
+
+The introduction is the big picture of your work: what, why, and how. It
+includes a definition of the problem you are solving, a high-level description
+of your solution including any novel techniques and results you provide, and a
+summary of the main results of your paper. In addition, motivates the problem
+you are solving (why should a reader find your work important), and describes
+your contribution to the area (this may not be applicable to your project).
+The first paragraph of the introduction should contain all of this information
+in a very high-level. Subsequent paragraphs should discuss in more detail the
+problem you are solving, your solution, and your results and conclusions.
+
+
+\section {Related Work}\label{relwork}
+This is an essential part of a research paper; discussing related work is a
+good way to put your work in context with other similar work, and to provide a
+way for you to compare/ contrast your work to other's work.  You should use
+feedback on the annotated bibliography from your project proposal to structure
+this section; it should be written as a re-write of your annotated bibliography
+in a single Related Work section.
+
+
+\section {One or more sections describing your Solution}\label{soln}
+Details of the problem you are solving Details of your solution and the
+project's implementation Even though you may have spent an enormous amount of
+time writing code, this should not include a listing of any code you wrote.
+Only if your project is about developing an algorithm or a new language, may
+code examples be appropriate here.  Discussion of how your solution solves the
+problem.
+
+
+\section {Results}\label{results}
+Experimental Results demonstrating/proving your solution Explain the tests you
+performed (and why) Explain how you gathered the data and details of how your
+experiments were run (any system/environment set up) Present your results
+Choose quality over quantity; the reader will not be impressed with pages and
+pages of graphs and tables, instead s/he wants to be convinced that your
+results show something interesting and that your experiments support your
+conclusions.  Discuss your results!  Explain/interpret your results (possibly
+compare your results to related work). Do not just present data and leave it up
+to the reader to infer what the data show and why they are interesting.  
+
+\section{Conclusions and Future Directions}\label{conc} 
+Conclusions and Future Directions for your work Conclude with the main ideas
+and results of your work. Discuss ways in which your project could be
+extended...what's next? what are the interesting problems and questions that
+resulted from your work?
+
+\section{Meta-discussion}\label{meta} 
+A brief meta-discussion of your project Include two paragraphs in this section:
+Discussion of what you found to be the most difficult and least difficult parts
+of your project.  In what ways did your implementation vary from your proposal
+and why?  
+
+
+At the end of your paper is a Reference section. You must cite each paper that
+you have referenced...your work is related to some prior work.
+
+% The References section is auto generated by specifying the .bib file
+% containing bibtex entries, and the style I want to use (plain)
+% compiling with latex, bibtex, latex, latex, will populate this
+% section with all references from the .bib file that I cite in this paper
+% and will set the citations in the prose to the numbered entry here
+\bibliography{finalreport}
+\bibliographystyle{plain}
+
+% force a page break
+\newpage 
+% I want the Appendices to be single column pages
+\onecolumn
+\section{Appendices}\label{appx} 
+
+You may optionally add appendices to your report.  They do not count towards
+page total.  Appendicies are for expanding on details or results that are
+beyond inclusion in the main part of paper.  It could be where you have code
+snippets that illustrate some of details of what you discuss, but it is not a
+venue for a dump of all the code you wrote, which has no place in research
+paper.  
+
+
+\newpage
+\twocolumn
+\section{some latex examples}
+
+In my latex examples:
+\begin{verbatim}
+/home/newhall/public/latex_examples/paper/
+\end{verbatim}
+Is an example report and bibtex for a paper with lots of examples
+of latex formatting for tables, figures, references. etc.  See 
+the {\tt paper.tex} file and the {\tt paper.bib } file for lots of
+examples. Also, off my   help pages is some information for how to 
+convert documents from one form to another: 
+{\small \url{www.swarthmore.ed/~newhall/unixlinks.html#doc} }
+
+Here are a few latex examples:
+
+\subsubsection{Examples of figure and section references}
+
+To refer to a figure or section with a label, 
+use {\tt backslash ref\{labelname\}} and note where the labelname is 
+defined in the figure.  For example: (see Figure~\ref{dyncompex}, see 
+Section~\ref{meta}). 
+
+\subsubsection{Examples of incorporating figures}
+
+Here is an example of how to incorporate a figure in a document...you need
+to include a graphics package at the top of the latex document.  
+
+\begin{figure}[t]
+\centerline{\includegraphics[height=1.0in]{/home/newhall/public/latex_examples/report/ERbook.pdf}}
+
+\caption{ {\label{dyncompex} {\tt Figures should have a caption that 
+    describes what the figure is/shows}.  For example: During a dynamically 
+    compiled execution, methods may be interpreted by the VM and/or 
+    compiled into native code and directly executed. 
+    {\em The native code may still interact with the VM.  In this 
+      case, the VM acts like a run-time library to the AP.
+}}}
+\end{figure}
+
+{\bf For all figures in the document, you should refer to it and 
+describe what it shows in the prose of your paper}.  Here is an example: 
+Figure~\ref{dyncompex} shows the two execution modes of an 
+environment that uses dynamic compilation: (1) the VM interprets AP 
+byte-codes; (2) native code versions of AP methods, that the VM compiles 
+at run-time, are directly executed by the operating system/architecture 
+platform with some residual VM interaction (for example, activities like 
+object creation, thread 
+synchronization, exception handling, garbage collection, and calls from native 
+code to byte-code methods may require VM interaction). 
+
+\subsubsection {Figure Formating}
+
+I can force a figure to the top or bottom of a page by using the [t] or [b].
+I can also try to force it to come after the prose it follows in the .tex
+file by using [!htb] (latex doesn't always comply):
+
+\subsection {column spanning figures or tables}
+
+In two-column documents, you often have figures or tables that are
+too large to fit in a single column.  In this case you can specify
+that they fill both columns of the document by defining a table or 
+column with a {\tt *} at the end: {\tt figure*} or {\tt table*}. Latex
+will only place these at the very top or very bottom of a two-column
+document.   See Table~\ref{swapdevresults} for one example.  You can
+uncomment the following figure definition to generate another example:
+
+\begin{table*}
+\begin{center}
+\begin{tabular}{|l||r l|r|r|r|}
+\hline
+\multicolumn{1}{|c||}{Benchmark} & \multicolumn{2}{c|}{Nswap2L} &\multicolumn{1}{c|}{Nswap} &\multicolumn{1}{c|}{Flash} & \multicolumn{1}{c|}{Disk} \\
+\hline
+WL1   & {\bf 443.0} & (3.5 speedup)    & 471.8  & 574.2  & 1547.4 \\
+WL2   & {\bf 591.6} &(30.0)            & 609.7  & 883.1  & 17754.8\\
+WL4   & {\bf 578.9} &(30.9)            & 591.7  & 978.4  & 17881.2\\
+Radix & {\bf 110.7} &(2.3)             & 113.7  & 147.4  & 255.5 \\
+HPL   & 536.1 &(1.5)             & {\bf 529.7}  & 598.7  & 815.3 \\
+\hline
+\end{tabular}
+
+\caption{\label{swapdevresults} Comparison of different swap devices. 
+  {\em For each benchmark, the total run time (in seconds) when 
+    run using Nswap2L, Nswap Network RAM, flash or Disk as the 
+    swap partition. Bold entries show the best time.  Nswap2L speedups 
+over disk are in parentheses.} }
+\end{center}
+\end{table*}
+
+The first part of a tabular definition {\tt e.g. |c|l|r|rr|} 
+specifies the number of columns, the text alignment in each column,
+(centered, left, right), and any vertical bars you want drawn between 
+columns.  In this example, there are 3 columns, the first is 
+centered, the others right-aligned, and there is a double 
+vertical bar between the first and second columns and a single bar 
+between the second and third.
+
+Each row of values is listed on a separate line with.  Ampersands are 
+used between each column's value, and backslash-backslash ends a row.   
+{\tt hline} can be used to draw horizontal lines.  
+
+The second table definition is a larger example that 
+demonstrates the multicolumn directive
+which can be used to change the default formating of a particular row,
+including allowing content to span multiple columns, to be aligned 
+differently, and to have different vertical bars drawn then the 
+default column definitions listed in the tabular definition:
+
+
+
+\end{document}
+
