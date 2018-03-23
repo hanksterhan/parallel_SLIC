@@ -1,0 +1,82 @@
+% this is an example bibtex file, there are different types of entries
+% each with different format requirements
+% the most commonly used are book, inproceedings, article, and misc 
+% annotate is used to add comments about the work to the .bib file
+% entries (its contents will not show up in the References section) 
+% see http://www.bibtex.org/ for lots more information
+
+
+% not every field of each style of entry is required, but author, title,
+% year, and some specification of how it is published is required for
+% most formats  (I could remove month here, for example)
+% anything I put in { } will be translated as is (this is how I can
+% force capitaliziation), anything in "" will be capitalize based on
+% the whim of bibtex
+@INPROCEEDINGS{newhall:nswap2L, 
+  author = "Tia Newhall and Douglas Woos",
+  title = "Incorporating Network {RAM} and Flash into Fast Backing Store 
+  for Clusters",
+  booktitle = "{IEEE} Cluster Conference", 
+  MONTH = September,
+  year = 2011
+} 
+
+@MISC {bulatov:HYP,
+        AUTHOR = "Vladimir Bulatov",
+        TITLE = "Hyper{P}rof - hyperbolic profile browser for {J}ava",
+        HOWPUBLISHED = "http://pc153.mt.ic.ac.uk/Bulatov/HyperProf/",
+        ANNOTE =  "visualization for Java -prof output, based on 
+          Poincarte's 2-D model of hyperbolic space.
+          "
+}
+
+@MISC {newhall:help,
+        AUTHOR = "Tia Newhall",
+        TITLE = "{CS} and {U}nix Help Pages",
+        HOWPUBLISHED = "\url{www.cs.swarthmore.edu/\~newhall/unixlinks.html}",
+        ANNOTE =  "
+          "
+}
+
+@BOOK {unixV,
+        KEY = "unixV",
+        AUTHOR = "AT\&T",
+        TITLE = "System {V} {I}nterface {D}efinition, {T}hird {E}dition",
+        PUBLISHER = {Addison-Wesley},
+        YEAR = 1989
+}
+
+
+@ARTICLE {armstrong:hotspot,
+        AUTHOR = "Eric Armstrong",
+        TITLE = "HotSpot: {A} new breed of virtual machine",
+        JOURNAL = "{JavaWorld}  http://www.javaworld.com/",
+        YEAR = 1998,
+        MONTH = March,
+        ANNOTE =  ""
+}
+
+@TECHREPORT {metering,
+        KEY = "metering",
+        AUTHOR = "Mark Kantrowitz",
+        TITLE = "Portable {U}tilities for {C}ommon {L}isp, {U}ser {G}uide  and {
+I}mplementation {N}otes",
+        INSTITUTION = "{Carnegie Mellon University}",
+        NUMBER = "CMU-CS-91-143",
+        MONTH= "May",
+        YEAR = 1991,
+        ANNOTE =  "
+           Profiling tool for Lisp programs
+           works by annotating code with a specification of which functions
+           to monitor
+           can provide inclusive and exclusive timing information, number of
+           calls, cons per call, and adjust times with an estimate of total
+           timing overhead, plus the an estimate of timing overhead is
+           subtracted from each function time
+	"
+}
+
+
+
+
+
