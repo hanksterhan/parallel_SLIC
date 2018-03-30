@@ -5,10 +5,10 @@
 \documentclass[11pt]{article}
 
 % use some other pre-defined class definitions for the style of this
-% document.   
-% The .cls and .sty files typically contain comments on how to use them 
-% in your latex document.  For example, if you look at psfig.sty, the 
-% file contains comments that summarize commands implemented by this style 
+% document.
+% The .cls and .sty files typically contain comments on how to use them
+% in your latex document.  For example, if you look at psfig.sty, the
+% file contains comments that summarize commands implemented by this style
 % file and how to use them.
 % files are in: /usr/share/texlive/texmf-dist/tex/latex/preprint/
 \usepackage{fullpage}
@@ -47,64 +47,92 @@
 % for an article class document, there are some pre-defined types
 % for formatting certain content: title, author, abstract, section
 
-\title{CS87 Project Proposal: A Concise and Meaningful Title}
+\title{CS87 Project Proposal: Parallelized Calculation of Superpixels}
 
-\author{Author2, Author3 \\ 
+\author{Rachel Diamond, Tai Warner, and Henry Han \\
 Computer Science Department, Swarthmore College, Swarthmore, PA  19081}
 
 \maketitle
 
-\section {Introduction}\label{intro} 
-A 1-2 paragraph summary of the problem you are solving, why it is interesting,
-how you are solving it, and what conclusions 
-you expect to draw from your work.
+\section {Introduction}\label{intro}
+%A 1-2 paragraph summary of the problem you are solving, why it is interesting, how you are solving it, and what conclusions you expect to draw from your work.
+Computer vision tasks have been historically very computationally intensive due to the sheer number of pixels to be processed and thus have been routinely parallelized to achieve high performance. With the introduction of superpixels, however, the complexity of subsequent image processing tasks has been drastically reduced.
+
+Superpixels are pixels that are grouped into larger, perceptually meaningful regions that account for image redundancy and color homogeneity. A superpixel algorithm takes an image input and returns the same image, with segmentations superimposed on it. These segmentations will be grouped by position and color and represent meaningful and recognizable units of the picture \cite{slic}. This is in stark contrast to a pixel that can be anything and does not represent anything meaningful.
+
+In this project, we intend to implement a sequential superpixel algorithm SLIC (Simple Linear Iterative Clustering) and extend onto both the parallel version gSLIC and the dynamically adapting version ASLIC, or SLICO. SLIC clusters pixels in a 5-dimensional color and image plane space that produces superpixels efficiently and at a lower computational cost compared to other state-of-the-art methods \cite{slic}. In our implementation, we hope to combine all three algorithms to create gSLICO, and even hope to experiment with different dimensional spaces that allow the algorithm to be applied to videos and changing environments.
 
 \section {Related Work}\label{rel}
-1-2 paragraphs describing similar approaches to the one you propose. This need
-not be an exhaustive summary of related literature, but should be used to put
-your solution in context and/or to support your solution. This is also a good
-way to motivate your work. This can be a summary taken from your longer
-annotated bibliography.  
 
-Here is an example of how to cite someting from the bib 
-file~\cite{newhall:nswap2L}.  Here is another~\cite{unixV}.  
-The proposal.bib file has some example 
-bibtex entries you can use as a guide for entering your own.
+We drew inspiration in the first place from Achanta et. al (2010, 2012) \cite{slic}\cite{slic2012}. They introduced SLIC, a new technique for the problem of image superpixelation. While older algorithms have existed that use graph-based or gradient ascent methods, SLIC is built off of the classic k-means algorithm. This is conceptually much simpler, because it intuitively clusters in terms of color and position of the pixel --- two pixels that are a similar color but far away are not likely to be the same part of the object, just as two nearby pixels of starkly different color are probably part of different objects. It is also a simpler algorithm computationally, and takes orders of magnitude less time than some other superpixel algorithms.
 
-In the Annotated Bibliography~\ref{annon} you will included an expanded description of your related work (and you should cite there as well.
+Some SLIC extensions have already been explored and implemented. For example, gSLIC is a parallel implementation of SLIC that uses CUDA to run on the GPU \cite{gslic}. gSLIC achieved an impressive 19 times speedup when compared to SLIC for the largest image size that they tested (1280 x 960). ASLIC, or Adaptive SLIC, is an implementation of SLIC that doesn't require the programmer to tune the compactness factor and the algorithm dynamically defines the compactness factor based on previous iterations \cite{slic2012}.
+
+Before SLIC, there were other approaches to image superpixelation that used graph-based (GS04, NC05) or gradient-ascent-based (WS91, MS02) algorithms. In graph based algorithms, each pixel becomes a node in a graph, and the edge weights are set to be proportional to the similarity between pixels. In gradient ascent based algorithms, the algroithm uses gradient ascent methods to refine clusters (after an initial rough clustering) to obtain better segmentation \cite{slic}.  However, in terms of metris for image superpixelation, i.e. compactness, boundary recall, etc., SLIC outperforms all of the other algorithms \cite{slic}.\\
+
+% 1-2 paragraphs describing similar approaches to the one you propose. This need
+% not be an exhaustive summary of related literature, but should be used to put
+% your solution in context and/or to support your solution. This is also a good way to motivate your work. This can be a summary taken from your longer
+% annotated bibliography.
+
+% Here is an example of how to cite something from the bib
+% file~\cite{newhall:nswap2L}.  Here is another~\cite{unixV}.
+% The proposal.bib file has some example
+% bibtex entries you can use as a guide for entering your own.
+
+% In the Annotated Bibliography~\ref{annon} you will included an expanded description of your related work (and you should cite there as well.
 
 \section {Your Solution}\label{soln}
-3-4 paragraphs describing what you plan to do, how you plan to do it, how it
-solves the problem, and what types of conclusions you expect to draw from your
-work.
+%3-4 paragraphs describing what you plan to do, how you plan to do it, how it solves the problem, and what types of conclusions you expect to draw from your work.
+
+We plan for this project to be heavy in implementation, because we are going to come up with a number of slightly different products. SLIC is the staple, off of which gSLIC and SLICO will be built, and then hopefully combined into gSLICO. Let's dive into what each of these products is.
+
+Our implementation of SLIC will be a superpixel algorithm that takes an image as input and returns the same image, with segmentations superimposed on it. These segmentations will be grouped by position and color, the idea being that each superpixel should be a meaningful unit of the picture. A single white pixel could be part of a cloud, a cloth, someone's eye, or soap foam, so that isn't a very informative unit of meaning. A superpixel would be more informative in that it would pick out a cotton ball on a table based on the locality of the white in one place (the tissue on the other end of the table isn't part of the same white) and the contrast between it and the brown wood. We will use k-means clustering in 5D space (three color dimensions and two spacial) to iteratively generate the superpixels. This will be sequential \cite{slic}.
+
+SLICO is an even more stylized version of SLIC. While SLIC simply groups pixels based on whatever their values are, SLICO strives for superpixel uniformity in uniform areas, and allows more contrived shapes in more textured regions. That is, pixels on a white wall should all be relatively similar hex-circle shapes, while the Klimt hanging nearby should be meticulously carved out by color, so that each pixel can be a more telling constituent of the picture \cite{slic2012}. The main difference between SLICO and SLIC is the objective function; we don't anticipate there to be a huge step from implementing SLIC to SLICO.
+
+Note that both SLIC and SLICO will be implemented sequentially. We are not sure whether to implement them in Python or C++, but we do know that when we get to gSLIC, we will want to be in C++ to take advantage of CUDA resources. gSLIC is a version of SLIC that is parallelized and slightly modified so that it can run on the GPU \cite{gslic}. The k-means algorithm used in SLIC is easily parallelizable: each pixel must associate with the nearest cluster center, and then each cluster center readjusts to the center of whatever new elements it includes. This can probably be parallelized to astonishingly fine granularity, since all pixels could compute their closest center in parallel on the GPU. Many threads will then remain idle since only k of them will have to do the work of the clusters, but we think the majority of the work will be done with such a high degree of parallelism that this won't lead to an overall slowdown.
+
+After implementing gSLIC, we intent to implement gSLICO, a parallelized algorithm for superpixelization with adaptive compactness. Assuming that the step from SLIC to SLICO is small, the step from gSLIC to gSLICO ought to be equally small since it's primarily a change to the objective function run by each GPU thread. From our analysis of existing literature about superpixels, there is not an existing implementation of gSLICO, so this would be uncharted territory.
+
+While our solution may be implementation heavy, a great deal of the code is open source online. We imagine we will not look at it very much, and try to implement the algorithm by our own wit, but it will be nice to have as a reference. It also allows us to not get stuck with coding if something proves harder than we anticipate. Since this is not uncharted territory, we expect that our solution will successfully superpixelate an image in a way similar to other superpixelated images we have seen. In particular, regions of sharp contrast between colors (in other words, edges) will have edges of superpixels associated with them, superpixels in large regions of similar color (like a sky) will group (with varying degrees of regularity between SLIC and SLICO), and highly textured regions will have lots of thin or small superpixels partitioning them. We also hope to experiment with stacking frames in a movie to cluster supervoxels with a similar technique, finding the `edges' in, say, cut scenes, characters' location, or objects within the frame.
 
 \section {Experiments}\label{exper}
-1-3 paragraphs describing how you plan to evaluate your work. List the
-experiments you will perform. For each experiment, explain how you will perform
-it and what the results will show (explain why you are performing a particular
-test).
+% 1-3 paragraphs describing how you plan to evaluate your work. List the
+% experiments you will perform. For each experiment, explain how you will perform
+% it and what the results will show (explain why you are performing a particular
+% test).
+
+We plan to implement two different sets of quantitative experiments as well as qualitative analysis to evaluate the performance of the different algorithms that we implement. Our goal is to implement four different algorithms, two of which are sequential (SLIC, SLICO) and two of which are parallelized using CUDA (gSLIC, gSLICO). Our experiments will compare across these four algorithms, or whichever subset we are able to complete implementations for. The first set of experiments will focus on timing while the second will focus on quantitative analysis of the superpixels produced by the algorithm. Finally, we will include our own qualitative observations concerning how well we think that each algorithm segmented the test images.
+
+The first set of experiments will quantify runtime across the different algorithms. Based on the literature, we expect to find that both parallelized algorithms are substantially faster than either sequential algorithm and that the algorithms where the compactness parameter $m$ is tuned adaptively rather than set constant will be slightly slower. We will record segmentation speed for three sizes of image: 320 x 240, 1280 x 960, and 2048 x 1536. The first and last of these sizes were used in the 2012 Achanta et. al. \cite{slic2012} paper comparing different superpixel algorithms, so this will allow us to also compare our implementation directly to their reported results. The middle size (1280 x 960) was the largest size used by Ren and Reid in their paper presenting gSLIC \cite{gslic}, so this size was chosen so that we can compare our times to theirs. We also intend to compare runtimes for input images with different amounts of complexity, since we suspect that the amount of detail in an image may affect how long the algorithms take to complete. Therefore, we will run with six input images - a low detail (with larger regions of the same color) and a high detail image in each of the three sizes.
+
+The second set of experiments will quantify the ``goodness'' of the resulting segmentations. A common metric for analyzing this is boundary recall\cite{dissertationneubert}. This compares the segmentation produced by the algorithm to a hand labeled ``gold standard'' segmentation and computes the fraction of the hand labeled edges pixels fall within at least two pixels of a superpixel boundary. To compute this we will need to run the algorithms on images that have also been hand labeled, which we may either do ourselves or find online. High boundary will be an indication that the algorithm has done a good job of aligning superpixel boundaries to object boundaries within the image. A second metric that we intend to use is within-superpixel color entropy. This will measure how similar all of the pixels withing a superpixel are in terms of color. Low entropy will indicate that the algorithm did a good job at only including like-colored pixels within each superpixel.
+
+Together, the timing and ``goodness'' metric will allow us to compare our algorithm implementations to each other. We will also be able to compare out implementations to the results presented in the papers where the algorithms were proposed. In particular, we will be interested whether gSLICO, which has not previously been implemented, is an improvement on existing algorithms.
+
 
 \section {Equipment Needed}\label{equip}
-1 paragraph listing any software tools that you will need to implement and/or
-test your work. If you need to have software installed to implement your
-project, you should check with the systems lab to see if it is something that
-can be installed on the CS lab machines.
+Our project will probably not require anything beyond what the lab machines already have. It would be cool to try hooking a video camera up to a computer running gSLIC and superpixelate the feed in real time, but that would probably just be for fun. A dataset consisting of sequential frames in movies would also be useful, but we expect that this can be found online.
 
 \section {Schedule}\label{sched}
-list the specific steps that you will take to complete your project, include
-dates and milestones. This is particularly important to help keep you on track,
-and to ensure that if you run into difficulties completing your entire project,
-you have at least implemented steps along the way. Also, this is a great way to
-get specific feedback from me about what you plan to do and how you plan to do
-it.  Conclusions: 1 paragraph summary of what you are doing, why, how, and what
-you hope to demonstrate through your work.
+%list the specific steps that you will take to complete your project, include dates and milestones. This is particularly important to help keep you on track, and to ensure that if you run into difficulties completing your entire project, you have at least implemented steps along the way. Also, this is a great way to get specific feedback from me about what you plan to do and how you plan to do it.
 
-% here is an example of a numbered list 
-\begin{my_enumerate}
-  \item Week 1: 
-  \item Week 2: 
-\end{my_enumerate} 
+% here is an example of a numbered list
+\begin{my_itemize}
+  \item Week 0 (by March 30): Project Proposal and Annotated Bibliography
+  \item Week 1 (by April 6): Sequential implementation of SLIC in C++
+  \item Week 2 (by April 13): SLICO implemented, gSLIC begun
+  \item Week 3 (by \textbf{Thursday April 19}): Mid-way Oral and Written Progress Report \\\quad\quad Slack time for SLICO in case implementation is hard \\\quad\quad Work time for gSLIC
+  \item Week 4 (by April 27): gSLIC implemented \\\quad\quad Experimentation between SLIC and gSLIC \\\quad\quad Experimentation with 6D supervoxels
+  \item Week 5 (by May 4): Finish experimentation, gSLICO implemented, start working on paper
+  \item Week 6 (by May 11): Paper finished
+  \item May 13: Oral Presentation
+\end{my_itemize}
 
+\section {Conclusions}\label{conclusions}
+% 1 paragraph summary of what you are doing, why, how, and what you hope to demonstrate through your work.
+Superpixels are a new and exciting way of representing and understanding images, and SLIC is a commendable algorithm for the job. We hope to find fulfillment in the style and aesthetic of superpixelated images, and we expect that the choices it makes of where to draw superpixel boundaries will be interesting and fun to examine. We also are excited to experiment with parameter values in this algorithm and see how that affects the behavior of the superpixels and how they tend to cluster. This is an active area of research, and while some extensions on SLIC have already been implemented, we hope a part of this project will be the release of gSLICO, a fusion which has not been done before to our knowledge. In general, though, we hope to generate images which are pleasing and intriguing to a viewer, as well as gain an understanding of the nature of the superpixel problem and hopefully extend it to new areas.
 
 
 % The References section is auto generated by specifying the .bib file
@@ -112,18 +140,40 @@ you hope to demonstrate through your work.
 % compiling with latex, bibtex, latex, latex, will populate this
 % section with all references from the .bib file that I cite in this paper
 % and will set the citations in the prose to the numbered entry here
+%\newpage
 \bibliography{proposal}
 \bibliographystyle{plain}
 
 % force a page break
-\newpage 
+\newpage
 
 % I want the Annotated Bib to be single column pages
 \onecolumn
-\section*{Annotated Bibliography}\label{annon} 
+\section*{Annotated Bibliography}\label{annon}
 
-This section does not count towards the page total for your proposal.
+\hyperlink{https://infoscience.epfl.ch/record/149300/files/SLIC_Superpixels_TR_2.pdf}{SLIC Superpixels} \cite{slic}
+%1 paragraph that summarizes the work, lists strengths and weaknesses, and discusses the main contribution of the work; 1 paragraph that analyzes the work in the context of how it is related to your project
+
+This paper introduces SLIC, a new technique for the problem of image superpixelation. While older algorithms have existed that use graph-based or gradient ascent methods, SLIC is built off of the classic k-means algorithm. This is conceptually much simpler, because it intuitively clusters in terms of color and position of the pixel --- two pixels that are a similar color but far away are not likely to be the same part of the picture, just as two nearby pixels of starkly different color are probably part of different objects. It is also a simpler algorithm computationally, and takes orders of magnitude less time than some other superpixel algorithms. This paper's main contribution is that the algorithm proposed blows all others out of the water. It is easy to read, does a great job of comparing SLIC's performance with other algorithms' on a number of counts, and talks about some good settings for parameters in a way that helps the reader get a feel for how the algorithm works.
+
+This is an invaluable paper to us because it essentially articulates our solution. SLIC is the general algorithm that we will be implementing, and the steps are outlined here. This paper also notes a few places that can be experimented with --- for example, the distance function --- and we are interested in how the behavior changes depending on how we tweak the algorithm. In particular, this algorithm consists of two steps: given an array of pixels with five dimensions (three for color and two for location), group similar pixels and find their average; then, find all the closest pixels to each center, and recompute the average of the newly associated group. The distance formula that this assumes is open to a great deal of variation. This paper is the root node of the tree that everything in our project is an offshoot of.\\\\
+
+\hyperlink{https://www.researchgate.net/publication/265890194}{gSLIC: a real-time implementation of SLIC superpixel segmentation} \cite{gslic}
+
+This paper introduces gSLIC, a parallel implementation of SLIC that uses CUDA to run on the GPU. It gives an overview of GPU computing and of the SLIC algorithm before providing sudocode for gSLIC. It then provides timing results which include an impressive 19 times speedup for gSLIC when compared to SLIC for the largest image size that they tested (1280 x 960). The paper also mentions a potentially further parallelization that they chose not to implement which is parallelizing the code that enforces the connectivity of each superpixel so that exactly the intended number of superpixels are produced by the algorithm.
+
+This paper is directly relevant to our project because we are particularly interested in increasing performance via parallelization, and it provides several suggestions as to how to parallelize the SLIC algorithm. For example using one thread per superpixel rather than one thread per pixel, which we will use to guide our own CUDA implementation.\\\\
+
+\hyperlink{https://infoscience.epfl.ch/record/177415/files/Superpixel_PAMI2011-2.pdf}{SLIC Superpixels Compared to State-of-the-art Superpixel Methods} \cite{slic2012}
+
+This paper is the latest paper on SLIC that Achanta et. al wrote. Extensions and improvements to the original SLIC algorithm were discussed. In particular, Section IV.E of this paper describes an implementation of the SLIC algorithm with a more complex distance measure, called Adaptive-SLIC, or ASLIC (also referred to as SLICO in other papers). Instead of simply defining D to be the five-dimensional Euclidean distance in labxy space with normalized color and spatial proximities, ASLIC defines D adaptively depending on the previous maximum distances for each cluster. Although ASLIC is outperformed by the basic SLIC algorithm in terms of speed, memory, and boundary adherence, and has a reduced boundary recall performance, ASLIC produces more consistent superpixel compactness, guarantees connectivity in the xy plane, eliminates the need for a post-processing step, and there is no compactness constant $m$ to be set or tuned.
+
+\subsection*{Additional Sources}
+
+\hyperlink{http://www.qucosa.de/fileadmin/data/qucosa/documents/19024/peer_neubert_online.pdf}{Superpixels and their application for visual place recognition in changing environments} \cite{dissertationneubert}
+
+This source is a 2015 dissertation that includes, in addition to other potentially useful topics, a section on comparing superpixel segmentation algorithms quantitatively.
+
 
 
 \end{document}
-
