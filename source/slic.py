@@ -16,12 +16,12 @@ def main():
   image = img_as_float(io.imread(args["image"]))
  
   # loop over the number of segments
-  for numSegments in (10, 100,1000):
+  for numSegments in (100, 300, 1000, 5000):
     # apply SLIC and extract (approximately) the supplied number
     # of segments
     print numSegments
-    #segments = slic(image, n_segments = numSegments, sigma = 0, compactness=30)
-    segments = slic(image, slic_zero=True, n_segments = numSegments)
+    segments = slic(image, n_segments=numSegments, sigma=0, compactness=7)
+    #segments = slic(image, slic_zero=True, n_segments = numSegments)
  
     # show the output of SLIC
     fig = plt.figure("Superpixels -- %d segments" % (numSegments))
