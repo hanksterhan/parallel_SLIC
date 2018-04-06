@@ -16,17 +16,17 @@ def main():
   image = img_as_float(io.imread(args["image"]))
  
   # loop over the number of segments
-  for numSegments in [100, 300, 1000, 3000]:
+  for numSegments in [5000, 3000]:
     # apply SLIC and extract (approximately) the supplied number
     # of segments
     print numSegments
-    segments = slic(image, n_segments=numSegments, sigma=0, compactness=20)
+    segments = slic(image, n_segments=numSegments, sigma=0, compactness=8)
     #segments = slic(image, slic_zero=True, n_segments = numSegments)
  
     # show the output of SLIC
     fig = plt.figure("Superpixels -- %d segments" % (numSegments))
     ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(mark_boundaries(image, segments, mode='inner'))
+    ax.imshow(mark_boundaries(image, segments, mode='subpixel'))
     plt.axis("off")
  
   # show the plots
