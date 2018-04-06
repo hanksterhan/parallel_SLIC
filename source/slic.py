@@ -16,7 +16,7 @@ def main():
   image = img_as_float(io.imread(args["image"]))
  
   # loop over the number of segments
-  for numSegments in [3000, 1000, 500, 100]:
+  for numSegments in [3000, 1000]:
     # apply SLIC and extract (approximately) the supplied number
     # of segments
     print numSegments
