@@ -1,0 +1,17 @@
+1. TODO
+
+2. Our new timeline is as follows:
+
+Week 1 (by April 6): Sequential implementation of SLIC in Python
+Week 2 (by April 13): Parallelize pre- and post-processing
+                      Parallelize SLIC into gSLIC
+                      Generate timing results for SLIC and gSLIC
+Week 3 (by April 17): Presentation
+                      Parallelize SLICO into gSLICO
+                      Generate timing results for SLICO and gSLICO
+Week 3 (by April 20): Written report
+Week 4 (by April 27): Experimentation on boundary recall, within-superpixel color entropy, etc
+Week 5 (by May 4): 6D extension
+Week 6 (by May 11): Write paper
+May 13: Presentation
+
