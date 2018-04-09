@@ -26,7 +26,7 @@ def main():
     # show the output of SLIC
     fig = plt.figure("Superpixels -- %d segments" % (numSegments))
     ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(mark_boundaries(image, segments, mode='inner'))
+    ax.imshow(mark_boundaries(image, segments, mode='subpixel'))
     plt.axis("off")
  
   # show the plots
