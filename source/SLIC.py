@@ -1,5 +1,5 @@
-# import the necessary packages
-from skimage.segmentation import slic
+# imprt the necessary packages
+from skimageCode.slic import slic
 from skimage.segmentation import mark_boundaries
 from skimage.util import img_as_float
 from skimage import io

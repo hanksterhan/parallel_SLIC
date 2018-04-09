@@ -1,20 +1,21 @@
 # coding=utf-8
-from __future__ import division
 
 import collections as coll
 import numpy as np
 from scipy import ndimage as ndi
 
-from ..util import img_as_float, regular_grid
-from ..segmentation._slic import (_slic_cython,
+from skimage.util import img_as_float, regular_grid
+from skimage.segmentation._slic import (_slic_cython,
                                   _enforce_label_connectivity_cython)
-from ..color import rgb2lab
+from skimage.color import rgb2lab
+import pycuda
 
 
 def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False):
+    print "hi"
     """Segments image using k-means clustering in Color-(x,y,z) space.
     Parameters
     ----------
@@ -167,10 +168,11 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         min_size = int(min_size_factor * segment_size)
         max_size = int(max_size_factor * segment_size)
         labels = _enforce_label_connectivity_cython(labels,
+                                                    n_segments,
                                                     min_size,
                                                     max_size)
 
     if is_2d:
         labels = labels[0]
 
-return labels
+    return labels
