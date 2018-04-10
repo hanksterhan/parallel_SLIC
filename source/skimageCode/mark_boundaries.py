@@ -36,7 +36,10 @@ def _find_boundaries_subpixel(label_img):
                               (3,) * ndim)
 
     boundaries = np.zeros_like(edges)
-    for index in np.ndindex(label_img_expanded.shape):
+    # pycuda.gpuarray meant to look and feel just like numpy
+    # gpuarray.to_gpu(np.array)
+    # np.array = gpuarray.get()
+    for index in np.ndindex(label_img_expanded.shape): #TODO: parallelize this
         if edges[index]:
             values = np.unique(windows[index].ravel())
             if len(values) > 2:  # single value and max_label

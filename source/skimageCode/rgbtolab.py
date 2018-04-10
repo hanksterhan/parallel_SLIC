@@ -1,3 +1,6 @@
+
+
+
 """
 //==============================================================================
 ///	RGB2XYZ
@@ -164,7 +167,7 @@ void SLIC::DoRGBtoLABConversion(
 
 # Need to double check how sci kit image reads in images
 def doRGB2LABConversion(image):
-    size = m_width * m_height
+    size = m_width * m_height # TODO: width and height of the picture
     lvec = []
     avec = []
     bvec = []
@@ -179,3 +182,38 @@ def doRGB2LABConversion(image):
         lvec.append(l)
         avec.append(a)
         bvec.append(b)
+
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    from pycuda.compiler import SourceModule
+
+    # Allocate memory on GPU
+    a_gpu cuda.mem_alloc(image.nbytes)
+
+    # Copy data structure onto GPU
+    cuda.memcpy_htod(a_gpu, image)
+
+    # PyCuda Code
+    mod = SourceModule("""
+        __global__ void doRGB2LABConv(int** image){
+            int idx = threadIdx.x + threadIdx.y * 4 // need to check how to assign a bucket(s) to each thread
+
+            r = image[idx][0]
+            g = image[idx][1]
+            b = image[idx][2]
+
+            l, a, b = rgv2lab(r, g, b
+
+            lvec.append(l)
+            avec.append(a)
+            bvec.append(b)
+        }
+    """)
+
+    func = mod.get_function("doRGB2LABConv")
+    func(a_gpu, block=(4,4,1))
+
+    image_superpixels = numpy.empty_like(image)
+    cuda.memcpy_dtoh(image_superpixels, a_gpu)
+    print(image_superpixels)
+    print(image)
