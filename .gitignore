@@ -2,6 +2,9 @@ report.pdf
 proposal.pdf
 finalreport.pdf
 
+# Python
+*.pyc
+
 # Prerequisites
 *.d
 
