@@ -15,18 +15,24 @@ def main():
   # load the image and convert it to a floating point data type
   image = img_as_float(io.imread(args["image"]))
 
-  # loop over the number of segments
+  # loop over different k values (k is the number of superpixels)
   for numSegments in [100]:
-    # apply SLIC and extract (approximately) the supplied number
-    # of segments
-    print numSegments
+    print "running SLIC with k =", numSegments
+
+    # RUN SLIC
+    # default parameters for slic():
+    #   n_segments=100, compactness=10.0, max_iter=10, sigma=0, spacing=None,
+    #   multichannel=True, convert2lab=None, enforce_connectivity=True,
+    #   min_size_factor=0.5, max_size_factor=3, slic_zero=False
     segments = slic(image, n_segments=numSegments, sigma=0, compactness=24)
-    #segments = slic(image, slic_zero=True, n_segments = numSegments)
+
+    # superimpose segments onto image
+    image_segmented = mark_boundaries(image, segments, mode='outer')
 
     # show the output of SLIC
     fig = plt.figure("Superpixels -- %d segments" % (numSegments))
     ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(mark_boundaries(image, segments, mode='outer'))
+    ax.imshow(image_segmented)
     plt.axis("off")
 
   # show the plots
