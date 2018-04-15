@@ -17,7 +17,6 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False):
-    print "hi"
     """Segments image using k-means clustering in Color-(x,y,z) space.
     Parameters
     ----------
@@ -101,6 +100,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     Increasing the compactness parameter yields more square regions:
     >>> segments = slic(img, n_segments=100, compactness=20)
     """
+    print "... starting slic.py ..."
 
     image = img_as_float(image)
     is_2d = False
@@ -160,6 +160,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     # so the values have the same meaning
     step = float(max((step_z, step_y, step_x)))
     ratio = 1.0 / compactness
+    ratio = 1.0 #TODO: remove
 
     image = np.ascontiguousarray(image * ratio)
 
