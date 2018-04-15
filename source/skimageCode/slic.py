@@ -6,7 +6,9 @@ from scipy import ndimage as ndi
 
 from skimage.util import img_as_float, regular_grid
 from skimage.color import rgb2lab
-import pycuda
+from pycuda import driver as cuda
+from pycuda.compiler import SourceModule
+from pycuda import autoinit
 
 import pyximport
 pyximport.install()
@@ -162,9 +164,22 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     ratio = 1.0 / compactness
     ratio = 1.0 #TODO: remove
 
-    image = np.ascontiguousarray(image * ratio)
+    image = np.ascontiguousarray(image.astype(np.float32) * ratio)
 
-    labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
+    # copy image to GPU
+    # print "about to go into slic cython. image shape is: ", image.shape
+    image_gpu = cuda.mem_alloc(image.nbytes)
+    cuda.memcpy_htod(image_gpu, image)
+
+    # copy initial centroids to GPU
+    # print "segments shape: ", segments.shape
+    segments_gpu = cuda.mem_alloc() #TODO
+    labels = _slic_cython(image_gpu, segments, step, max_iter, spacing, slic_zero)
+    # Params: image, alloc'd on GPU: float*
+    #         image_x, image_y, image_z, xyz dimensions of image: int
+    #         segments, alloc'd on GPU: int*
+
+    #labels = cuda_slic_cython(image, image.shape)
 
     if enforce_connectivity:
         segment_size = depth * height * width / n_segments
