@@ -162,19 +162,68 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     # so the values have the same meaning
     step = float(max((step_z, step_y, step_x)))
     ratio = 1.0 / compactness
-    ratio = 1.0 #TODO: remove
+    #ratio = 1.0 #TODO: remove
 
-    image = np.ascontiguousarray(image.astype(np.float32) * ratio)
+    image = np.ascontiguousarray(image * ratio)
 
     # copy image to GPU
-    # print "about to go into slic cython. image shape is: ", image.shape
     image_gpu = cuda.mem_alloc(image.nbytes)
     cuda.memcpy_htod(image_gpu, image)
 
+
+    # try making image white on GPU TODO: remove this test code
+    cuda_white_string = SourceModule(
+    """
+    //# This code should be run with one thread per pixel (max img size is 4096x4096)
+    //# makes whole image white
+    __global__ void make_white(float* img) {
+
+        // convert from thread+block indices to 1D image index (idx)
+        int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+        bx = blockIdx.x;
+        by = blockIdx.y;
+        bz = blockIdx.z;
+        tx = threadIdx.x;
+        ty = threadIdx.y;
+        tz = threadIdx.z;
+        tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+        bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+        idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+        // use idx to set all pixels to white
+        img[3 * idx + 0] = (float) tx; // L
+        //img[3 * idx + 1] = (float) 0;   // a
+        //img[3 * idx + 2] = (float) 0;   // b
+
+    }""")
+    white_func = cuda_white_string.get_function("make_white")
+    white_func(image_gpu, block=(image.shape[2], image.shape[1], image.shape[0]))
+    new_image = np.empty_like(image)
+    cuda.memcpy_dtoh(new_image, image_gpu)
+    # print "image"
+    # print image.astype(np.int)
+    # print "new image"
+    # print new_image.astype(np.int)
+    # pi, pj, pk, _ = image.shape
+    # for pii in range(pi):
+    #     for pjj in range(pj):
+    #         print "---"
+    #         for pkk in range(pk):
+    #             print image[pii][pjj][pkk].astype(np.int), "   |||   ", new_image[pii][pjj][pkk].astype(np.int)
+
+
     # copy initial centroids to GPU
     # print "segments shape: ", segments.shape
-    segments_gpu = cuda.mem_alloc() #TODO
-    labels = _slic_cython(image_gpu, segments, step, max_iter, spacing, slic_zero)
+    #segments_gpu = cuda.mem_alloc() #TODO
+
+    print "about to call _slic_cython with parameters:"
+    print " > img shape", image.shape
+    print " > segments shape", segments.shape
+    print " > step", step
+    print " > max iter", max_iter
+    print " > spacing", spacing.shape, spacing
+    print " > slic zero", slic_zero
+    labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
     # Params: image, alloc'd on GPU: float*
     #         image_x, image_y, image_z, xyz dimensions of image: int
     #         segments, alloc'd on GPU: int*
