@@ -213,8 +213,17 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
 
 
     # copy initial centroids to GPU
-    # print "segments shape: ", segments.shape
-    #segments_gpu = cuda.mem_alloc() #TODO
+    print "segments shape: ", segments.shape
+    centroids = np.array([])
+    for segment in segments:
+        for s in segment:
+            centroids.add(s)
+    centroids = centroids.astype(int)
+    #centroids is now a 1D array with 6D centroids represented sequentially
+    #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
+    #TODO: figure out the number of centroids spaced along x and y axes?
+    centroids_gpu = cuda.mem_alloc(centroids.nbytes)
+    cuda.memcpy_htod(centroids_gpu, centroids)
 
     print "about to call _slic_cython with parameters:"
     print " > img shape", image.shape
