@@ -6,7 +6,9 @@ from scipy import ndimage as ndi
 
 from skimage.util import img_as_float, regular_grid
 from skimage.color import rgb2lab
-import pycuda
+from pycuda import driver as cuda
+from pycuda.compiler import SourceModule
+from pycuda import autoinit
 
 import pyximport
 pyximport.install()
@@ -17,7 +19,6 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False):
-    print "hi"
     """Segments image using k-means clustering in Color-(x,y,z) space.
     Parameters
     ----------
@@ -101,6 +102,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     Increasing the compactness parameter yields more square regions:
     >>> segments = slic(img, n_segments=100, compactness=20)
     """
+    print "... starting slic.py ..."
 
     image = img_as_float(image)
     is_2d = False
@@ -160,10 +162,82 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     # so the values have the same meaning
     step = float(max((step_z, step_y, step_x)))
     ratio = 1.0 / compactness
+    #ratio = 1.0 #TODO: remove
 
     image = np.ascontiguousarray(image * ratio)
 
+    # copy image to GPU
+    image_gpu = cuda.mem_alloc(image.nbytes)
+    cuda.memcpy_htod(image_gpu, image)
+
+
+    # try making image white on GPU TODO: remove this test code
+    cuda_white_string = SourceModule(
+    """
+    //# This code should be run with one thread per pixel (max img size is 4096x4096)
+    //# makes whole image white
+    __global__ void make_white(float* img) {
+
+        // convert from thread+block indices to 1D image index (idx)
+        int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+        bx = blockIdx.x;
+        by = blockIdx.y;
+        bz = blockIdx.z;
+        tx = threadIdx.x;
+        ty = threadIdx.y;
+        tz = threadIdx.z;
+        tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+        bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+        idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+        // use idx to set all pixels to white
+        img[3 * idx + 0] = (float) tx; // L
+        //img[3 * idx + 1] = (float) 0;   // a
+        //img[3 * idx + 2] = (float) 0;   // b
+
+    }""")
+    white_func = cuda_white_string.get_function("make_white")
+    white_func(image_gpu, block=(image.shape[2], image.shape[1], image.shape[0]))
+    new_image = np.empty_like(image)
+    cuda.memcpy_dtoh(new_image, image_gpu)
+    # print "image"
+    # print image.astype(np.int)
+    # print "new image"
+    # print new_image.astype(np.int)
+    # pi, pj, pk, _ = image.shape
+    # for pii in range(pi):
+    #     for pjj in range(pj):
+    #         print "---"
+    #         for pkk in range(pk):
+    #             print image[pii][pjj][pkk].astype(np.int), "   |||   ", new_image[pii][pjj][pkk].astype(np.int)
+
+
+    # copy initial centroids to GPU
+    print "segments shape: ", segments.shape
+    centroids = np.array([])
+    for segment in segments:
+        for s in segment:
+            centroids.add(s)
+    centroids = centroids.astype(int)
+    #centroids is now a 1D array with 6D centroids represented sequentially
+    #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
+    #TODO: figure out the number of centroids spaced along x and y axes?
+    centroids_gpu = cuda.mem_alloc(centroids.nbytes)
+    cuda.memcpy_htod(centroids_gpu, centroids)
+
+    print "about to call _slic_cython with parameters:"
+    print " > img shape", image.shape
+    print " > segments shape", segments.shape
+    print " > step", step
+    print " > max iter", max_iter
+    print " > spacing", spacing.shape, spacing
+    print " > slic zero", slic_zero
     labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
+    # Params: image, alloc'd on GPU: float*
+    #         image_x, image_y, image_z, xyz dimensions of image: int
+    #         segments, alloc'd on GPU: int*
+
+    #labels = cuda_slic_cython(image, image.shape)
 
     if enforce_connectivity:
         segment_size = depth * height * width / n_segments

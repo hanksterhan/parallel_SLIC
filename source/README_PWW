@@ -15,3 +15,12 @@ Week 5 (by May 4): 6D extension
 Week 6 (by May 11): Write paper
 May 13: Presentation
 
+
+This week, Tai and Rachel worked on parallelizing the SLIC algorithm, while Henry worked on
+parallelizing the pre- and post-processing of the data. There were some hiccups with PyCuda at
+the start of the week, but Tai and Rachel were able to theorize and think through the CUDA 
+implementation of the algorithm, and will begin coding it as soon as possible. Henry is working
+on creating parallel versions of a few particular function calls which are key bottlenecks in
+the data processing. Neither of these parallelisms are runnable right now, but we aim to have
+the SLIC algorithm working on the GPU in time for our presentation.
+
