@@ -10,7 +10,6 @@ cimport numpy as cnp
 
 from skimage.util import regular_grid
 
-
 def _slic_cython(double[:, :, :, ::1] image_zyx,
                  double[:, ::1] segments,
                  float step,
