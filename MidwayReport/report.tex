@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
 \usepackage{fullpage}
 \usepackage{subfigure,indentfirst}
+\usepackage{xcolor}
 % for url
 \usepackage{hyperref}
 % for underlined text
@@ -16,32 +17,57 @@
 % this starts the document
 \begin{document}
 
-\title{CS87 Midway Progress Report: Your Project Title}
+\title{CS87 Midway Progress Report: Superpixels}
 
-\author{Student1, Student2, Student3 \\
+\author{Tai Warner, Rachel Diamond, and Henry Han \\
 Computer Science Department, Swarthmore College, Swarthmore, PA  19081}
 
 \maketitle
 
 \section{Project Schedule/Milestones}
 
-{\it
-An updated project schedule with milestones and dates annotated with
-information indicating which parts you have completed, which parts you are
-currently working, and which parts you have yet to start.. Be specific about
-what you are going to do (or have done), what you have left to do, and in what
-order you plan to do these things.}
+{
+Our new timeline is as follows:\\\\
+\textbf{Week 1 (by April 6):} Sequential implementation of SLIC in Python 
 
+\textcolor{green}{Done --- used a codebase that uses Scikit-Image's implementation of SLIC.}\\
+\textbf{Week 2 (by April 13):} 
 \begin{itemize}
-\item Week 1: what we planned, what we did
+\item Parallelize pre- and post-processing 
+
+\textcolor{orange}{In progress - Henry is working on this}
+
+\item Parallelize SLIC into gSLIC 
+
+\textcolor{orange}{In progress --- we have planned the particulars of what strategy we will use to parallelize (by pixel), and are about to start writing the CUDA code in the Cython SLIC file.}
+
+\item Generate timing results for SLIC and gSLIC
+
+\textcolor{red}{Not begun}
+
 \end{itemize}
+\textbf{Week 3 (by April 17):} Presentation \textcolor{green}{Done}
+
+Parallelize SLICO into gSLICO \textcolor{orange}{Somewhat concurrent with parallelizing SLIC into gSLIC.}
+
+Generate timing results for SLICO and gSLICO \textcolor{red}{Not begun}\\
+\textbf{Week 3 (by April 20):} Written report \textcolor{green}{Done}\\
+\textbf{Week 4 (by April 27):} Experimentation on boundary recall, within-superpixel color entropy, etc \textcolor{red}{Not begun}\\
+\textbf{Week 5 (by May 4):} 6D extension \textcolor{red}{Not begun}\\
+\textbf{Week 6 (by May 11):} Write paper \textcolor{red}{Not begun}\\
+\textbf{May 13:} Final presentation \textcolor{red}{Not begun}
+}
 
 \section {Difficulties}
 {\it
 One paragraph describing any difficulties you have encountered so far and how
-you plan to resolve them (or how you did reslove them). If you don' t know how
+you plan to resolve them (or how you did resolve them). If you don' t know how
 to resolve them or have some ideas but have not completely figured it out yet,
 then explicitly tell me this so that I can try to suggest some solutions.}
+
+One of the challenges we faced in parallelizing the code was that the SLIC algorithm used a lot of numpy vector operations to transform from the rgb space to the xylab space. Other groups have suggested that we look for numpy functions that have already been implemented in C and so we will do that moving forward. 
+
+We have also spent a lot of time working through the logic for different methods of parallelization, perhaps more time than we expected. We have now decided on the method that we are going to try first - parallelizing on a per-pixel basis and have started coding accordingly. However, we may come back to some of the other parallelization methods that we considered and compare the affect on algorithmic speed. 
 
 \end{document}
 
