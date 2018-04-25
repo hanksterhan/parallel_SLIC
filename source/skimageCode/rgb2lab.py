@@ -29,9 +29,11 @@ def doRGB2LABConversion():
 
 
     #TODO: check the inputs to doRGB2LABConv
+    #TODO: compiler not liking the __global__ statement
+    #TODO: compiler also not liking the double lval aval bval that used to be of type double&
     # PyCuda Code
     mod = SourceModule("""
-        __global__ void RGB2XYZ(
+        __device__ void RGB2XYZ(
         	const int&		sR,
         	const int&		sG,
         	const int&		sB,
@@ -57,7 +59,7 @@ def doRGB2LABConversion():
         	Z = r*0.0193339 + g*0.1191920 + b*0.9503041;
         }
 
-        __global__ void RGB2LAB(const int& sR, const int& sG, const int& sB, double lval, double aval, double bval)
+        __device__ void RGB2LAB(const int& sR, const int& sG, const int& sB, double lval, double aval, double bval)
         {
         	//------------------------
         	// sRGB to XYZ conversion
