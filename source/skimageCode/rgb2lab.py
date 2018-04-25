@@ -1,22 +1,30 @@
 import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
+from skimage.util import img_as_float
 
-def doRGB2LABConversion(image): # what is the format of image?
-    # is image [z, x, y. rgb] ?
-    width = image[1]
-    width = image[2]
+def doRGB2LABConversion():
 
-    blockx = 4 # TODO: tweak this for the number of blocks in the x direction
-    blocky = 4 # TODO: tweak this for the number of blocks in the y direction
+    # read in the image into 3D array: height x width x 3 (rgb)
+    image = img_as_float(io.imread("~/input/tiny.jpg"))
 
-    # Are we having a 2D block grid each with a 2D thread grid??
+    height = image.shape[0]
+    width = image.shape[1]
+
+    # the lab vector is an empty vector of the same size as image
+    # will store lab values instead of rgb values
+    # TODO: how to pass in multiple values to pycuda function
+    lab_vector = [[[0, 0, 0] for w in width] for h in height]
+
 
     # Allocate memory on GPU
-    a_gpu = cuda.mem_alloc(image.nbytes)
+    image_gpu = cuda.mem_alloc(image.nbytes)
+    lab_gpu = cuda.mem_alloc(image.nbytes)
 
     # Copy data structure onto GPU
-    cuda.memcpy_htod(a_gpu, image)
+    cuda.memcpy_htod(image_gpu, image)
+    cuda.memcpy_htod(lab_gpu, lab_vector)
+
 
     #TODO: check the inputs to doRGB2LABConv
     # PyCuda Code
@@ -86,35 +94,38 @@ def doRGB2LABConversion(image): # what is the format of image?
 
         __global__
         void DoRGBtoLABConversion(
-        	const unsigned int*&		ubuff,
-        	double*&					lvec,
-        	double*&					avec,
-        	double*&					bvec)
+        	float*                      img,
+        	gloat*                      lab)
         {
-        	int sz = m_width*m_height;
-        	lvec = new double[sz];
-        	avec = new double[sz];
-        	bvec = new double[sz];
+            // convert from thread+block indices to 1D image index (idx)
+            int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+            bx = blockIdx.x;
+            by = blockIdx.y;
+            bz = blockIdx.z;
+            tx = threadIdx.x;
+            ty = threadIdx.y;
+            tz = threadIdx.z;
+            tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+            bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+            idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
-        	for( int j = 0; j < sz; j++ ) // TODO: parallelize this part
-        	{
-        		int r = (ubuff[j] >> 16) & 0xFF;
-        		int g = (ubuff[j] >>  8) & 0xFF;
-        		int b = (ubuff[j]      ) & 0xFF;
+            int r = image[3 * idx + 0];
+            int g = image[3 * idx + 1];
+            int b = image[3 * idx + 2];
 
-        		RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
-        	}
+            RGB2LAB(r, g, b, lab[3 * idx + 0], lab[3 * idx + 1], lab[3 * idx + 2])
+
         }
 
     """)
 
     func = mod.get_function("DoRGBtoLABConversion")
-    func(a_gpu, block=(4,4,1)) # TODO: tweak the block sizes based on the width and height of the image
+    func(image_gpu, lab_gpu, block=(image.shape[1],image.shape[0],1)) # TODO: tweak the block sizes based on the width and height of the image
 
     image_superpixels = numpy.empty_like(image)
-    cuda.memcpy_dtoh(image_superpixels, a_gpu)
+    cuda.memcpy_dtoh(image_superpixels, image_gpu)
 
     print(image_superpixels)
     print(image)
 
-doRGB2LABConversion(image)
+doRGB2LABConversion()
