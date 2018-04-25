@@ -108,8 +108,8 @@ def doRGB2LABConversion():
 
         __global__
         void DoRGBtoLABConversion(
-        	float*                      img,
-        	gloat*                      lab)
+        	float*                      image,
+        	float*                      lab)
         {
             // convert from thread+block indices to 1D image index (idx)
             int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
