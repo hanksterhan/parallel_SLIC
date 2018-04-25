@@ -39,6 +39,15 @@ def _find_boundaries_subpixel(label_img):
     # pycuda.gpuarray meant to look and feel just like numpy
     # gpuarray.to_gpu(np.array)
     # np.array = gpuarray.get()
+
+    # source code for np.ndindex:
+    # https://github.com/numpy/numpy/blob/v1.10.0/numpy/lib/index_tricks.py#L525-L589
+    # it is a class, so what do we import?
+
+    # source code for np.ravel:
+    # https://github.com/numpy/numpy/blob/v1.14.2/numpy/core/fromnumeric.py#L1427-L1531
+    # it calls itself??
+
     for index in np.ndindex(label_img_expanded.shape): #TODO: parallelize this
         if edges[index]:
             values = np.unique(windows[index].ravel())
