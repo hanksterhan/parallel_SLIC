@@ -9,13 +9,11 @@ def doRGB2LABConversion():
 
     # read in the image into 3D array: height x width x 3 (rgb)
     image = img_as_float(io.imread("../input/tiny.jpg"))
-
-    height = image.shape[0]
-    width = image.shape[1]
+    image = image[np.newaxis, ..., np.newaxis]
+    print("image shape: ", image.shape)
 
     # the lab vector is an empty vector of the same size as image
     # will store lab values instead of rgb values
-    # TODO: how to pass in multiple values to pycuda function
     lab_vector = np.empty_like(image)
 
 
@@ -27,10 +25,6 @@ def doRGB2LABConversion():
     cuda.memcpy_htod(image_gpu, image)
     cuda.memcpy_htod(lab_gpu, lab_vector)
 
-
-    #TODO: check the inputs to doRGB2LABConv
-    #TODO: compiler not liking the __global__ statement
-    #TODO: compiler also not liking the double lval aval bval that used to be of type double&
     # PyCuda Code
     mod = SourceModule("""
         __device__ void RGB2XYZ(
@@ -133,12 +127,14 @@ def doRGB2LABConversion():
     """)
 
     func = mod.get_function("DoRGBtoLABConversion")
-    func(image_gpu, lab_gpu, block=(image.shape[1],image.shape[0],1)) # TODO: tweak the block sizes based on the width and height of the image
+    func(image_gpu, lab_gpu, block=(image.shape[2],image.shape[1], image.shape[0]))
 
-    image_superpixels = np.empty_like(image)
-    cuda.memcpy_dtoh(image_superpixels, image_gpu)
+    lab_values = np.empty_like(image)
+    cuda.memcpy_dtoh(lab_values, lab_gpu)
 
-    print(image_superpixels)
+    print(lab_values)
+
+    print("image:")
     print(image)
 
 doRGB2LABConversion()
