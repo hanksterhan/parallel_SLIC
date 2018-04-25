@@ -10,6 +10,10 @@ from pycuda import driver as cuda
 from pycuda.compiler import SourceModule
 from pycuda import autoinit
 
+from cudaSLIC import *
+
+import matplotlib.pyplot as plt
+
 import pyximport
 pyximport.install()
 from cython_slic import (_slic_cython, _enforce_label_connectivity_cython)
@@ -165,65 +169,62 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     #ratio = 1.0 #TODO: remove
 
     image = np.ascontiguousarray(image * ratio)
+    print "image type", image.dtype
 
-    # copy image to GPU
-    image_gpu = cuda.mem_alloc(image.nbytes)
-    cuda.memcpy_htod(image_gpu, image)
+    image32 = image.astype(np.float32)
+    print "image32 type", image32.dtype
 
-
-    # try making image white on GPU TODO: remove this test code
-    cuda_white_string = SourceModule(
-    """
-    //# This code should be run with one thread per pixel (max img size is 4096x4096)
-    //# makes whole image white
-    __global__ void make_white(float* img) {
-
-        // convert from thread+block indices to 1D image index (idx)
-        int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
-        bx = blockIdx.x;
-        by = blockIdx.y;
-        bz = blockIdx.z;
-        tx = threadIdx.x;
-        ty = threadIdx.y;
-        tz = threadIdx.z;
-        tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
-        bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
-        idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
-
-        // use idx to set all pixels to white
-        img[3 * idx + 0] = (float) tx; // L
-        //img[3 * idx + 1] = (float) 0;   // a
-        //img[3 * idx + 2] = (float) 0;   // b
-
-    }""")
-    white_func = cuda_white_string.get_function("make_white")
-    white_func(image_gpu, block=(image.shape[2], image.shape[1], image.shape[0]))
-    new_image = np.empty_like(image)
-    cuda.memcpy_dtoh(new_image, image_gpu)
-    # print "image"
-    # print image.astype(np.int)
-    # print "new image"
-    # print new_image.astype(np.int)
-    # pi, pj, pk, _ = image.shape
-    # for pii in range(pi):
-    #     for pjj in range(pj):
-    #         print "---"
-    #         for pkk in range(pk):
-    #             print image[pii][pjj][pkk].astype(np.int), "   |||   ", new_image[pii][pjj][pkk].astype(np.int)
 
 
     # copy initial centroids to GPU
     print "segments shape: ", segments.shape
-    centroids = np.array([])
-    for segment in segments:
-        for s in segment:
-            centroids.add(s)
-    centroids = centroids.astype(int)
+    print "segments", segments
+    centroids = np.array([segment[::-1] for segment in segments], dtype = np.float32)
+    print "centroids:", centroids
     #centroids is now a 1D array with 6D centroids represented sequentially
     #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
     #TODO: figure out the number of centroids spaced along x and y axes?
+
+    # copy image information to GPU
+    image_gpu = cuda.mem_alloc(image32.nbytes)
+    cuda.memcpy_htod(image_gpu, image32)
+
+    img_dim = np.array(image32.shape[-2::-1], dtype=np.int32) # this weird indexing thing is because the image is in zyxc format to begin with
+    img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
+    cuda.memcpy_htod(img_dim_gpu, img_dim)
+
     centroids_gpu = cuda.mem_alloc(centroids.nbytes)
     cuda.memcpy_htod(centroids_gpu, centroids)
+
+    centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
+    centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
+    cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
+
+    assignments = np.empty(image32.shape[-2::-1], dtype = np.int32)
+    assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
+
+    print "dims:", img_dim, centroids_dim, assignments.shape
+
+    # should initialize pixel-centroid assignments
+    first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[2], image32.shape[1], image32.shape[0]))
+    cuda.memcpy_dtoh(assignments, assignments_gpu)
+    print assignments
+
+    # about to call update_assignments_func
+    # Parameters:
+    #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignment
+    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[2], image32.shape[1], image32.shape[0]))
+
+
+
+    # try making image white on GPU TODO: remove this test code and remove top import
+    white_func(image_gpu, block=(image32.shape[2], image32.shape[1], image32.shape[0]), grid = (1, 1, 1))
+    new_image = np.empty_like(image32)
+    cuda.memcpy_dtoh(new_image, image_gpu)
+    fig = plt.figure("white? image")
+    ax = fig.add_subplot(1, 1, 1)
+    ax.imshow(new_image[0])
+    plt.axis("off")
 
     print "about to call _slic_cython with parameters:"
     print " > img shape", image.shape
@@ -233,9 +234,13 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     print " > spacing", spacing.shape, spacing
     print " > slic zero", slic_zero
     labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
-    # Params: image, alloc'd on GPU: float*
-    #         image_x, image_y, image_z, xyz dimensions of image: int
-    #         segments, alloc'd on GPU: int*
+    #         image, alloc'd on GPU: float*
+    #         shape, dimensions in xyz
+    #         segments, initial seeds of centroids alloc'd on GPU: int*
+    #         centroids, 1d array of concatenated centroid labxyz: int*
+    #         step, step between initial centroids: float (32? 64? not sure)
+    #         max_iter, number of iterations: int
+    #
 
     #labels = cuda_slic_cython(image, image.shape)
 
