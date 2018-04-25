@@ -171,10 +171,8 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     image = np.ascontiguousarray(image * ratio)
     print "image type", image.dtype
 
-    image32 = image.astype(np.float32)
+    image32 = np.ascontiguousarray(np.swapaxes(image.astype(np.float32), 0, 2))
     print "image32 type", image32.dtype
-
-
 
     # copy initial centroids to GPU
     print "segments shape: ", segments.shape
@@ -189,7 +187,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     image_gpu = cuda.mem_alloc(image32.nbytes)
     cuda.memcpy_htod(image_gpu, image32)
 
-    img_dim = np.array(image32.shape[-2::-1], dtype=np.int32) # this weird indexing thing is because the image is in zyxc format to begin with
+    img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to just get xyz from xyzc
     img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
     cuda.memcpy_htod(img_dim_gpu, img_dim)
 
@@ -203,27 +201,28 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     assignments = np.empty(image32.shape[-2::-1], dtype = np.int32)
     assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
 
-    print "dims:", img_dim, centroids_dim, assignments.shape
+    print "dims:", img_dim, centroids_dim, assignments.shape, image32.shape
 
     # should initialize pixel-centroid assignments
-    first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[2], image32.shape[1], image32.shape[0]))
+    first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[0], image32.shape[1], image32.shape[2]))
     cuda.memcpy_dtoh(assignments, assignments_gpu)
     print assignments
 
     # about to call update_assignments_func
     # Parameters:
     #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignment
-    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[2], image32.shape[1], image32.shape[0]))
+    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[0], image32.shape[1], image32.shape[2]))
 
 
 
     # try making image white on GPU TODO: remove this test code and remove top import
-    white_func(image_gpu, block=(image32.shape[2], image32.shape[1], image32.shape[0]), grid = (1, 1, 1))
+    white_func(image_gpu, block=(image32.shape[0], image32.shape[1], image32.shape[2]), grid = (1, 1, 1))
     new_image = np.empty_like(image32)
+    print "new_image shape:", new_image.shape
     cuda.memcpy_dtoh(new_image, image_gpu)
     fig = plt.figure("white? image")
     ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(new_image[0])
+    ax.imshow(np.swapaxes(new_image, 0, 2)[0])
     plt.axis("off")
 
     print "about to call _slic_cython with parameters:"
