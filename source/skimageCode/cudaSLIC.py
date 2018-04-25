@@ -19,9 +19,9 @@ white_func = SourceModule(
       idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
       // use idx to set all pixels to white
-      img[3 * idx + 0] = (float) 1; // R
-      img[3 * idx + 1] = (float) 1; // G
-      img[3 * idx + 2] = (float) 0; // B
+      img[3 * idx + 0] = (float) 0.9; // R
+      img[3 * idx + 1] = (float) 0.9; // G
+      img[3 * idx + 2] = (float) 0.9; // B
 
   }""").get_function("make_white")
 
@@ -151,7 +151,7 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     i = px * cx / x;
     j = py * cy / y;
     k = pz * cz / z;
-    assignments[idx] = i + (j * cx) + (k * cx * cy);
+    assignments[idx] = i + (j * cx) + (k * cx * cy); //px + 100*py + 10000*pz;
 }
 """).get_function("first_assignments")
 
