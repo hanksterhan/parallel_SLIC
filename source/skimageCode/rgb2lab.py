@@ -31,8 +31,7 @@ def doRGB2LABConversion():
     #TODO: check the inputs to doRGB2LABConv
     # PyCuda Code
     mod = SourceModule("""
-        __global__
-        void RGB2XYZ(
+        __global__ void RGB2XYZ(
         	const int&		sR,
         	const int&		sG,
         	const int&		sB,
@@ -58,8 +57,7 @@ def doRGB2LABConversion():
         	Z = r*0.0193339 + g*0.1191920 + b*0.9503041;
         }
 
-        __global__
-        void RGB2LAB(const int& sR, const int& sG, const int& sB, double& lval, double& aval, double& bval)
+        __global__ void RGB2LAB(const int& sR, const int& sG, const int& sB, double lval, double aval, double bval)
         {
         	//------------------------
         	// sRGB to XYZ conversion
@@ -106,8 +104,7 @@ def doRGB2LABConversion():
         	bval = 200.0*(fy-fz);
         }
 
-        __global__
-        void DoRGBtoLABConversion(
+        __global__ void DoRGBtoLABConversion(
         	float*                      image,
         	float*                      lab)
         {
