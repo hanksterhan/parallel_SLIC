@@ -2,11 +2,13 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from skimage.util import img_as_float
+from skimage import io
+import numpy as np
 
 def doRGB2LABConversion():
 
     # read in the image into 3D array: height x width x 3 (rgb)
-    image = img_as_float(io.imread("~/input/tiny.jpg"))
+    image = img_as_float(io.imread("../input/tiny.jpg"))
 
     height = image.shape[0]
     width = image.shape[1]
@@ -14,7 +16,7 @@ def doRGB2LABConversion():
     # the lab vector is an empty vector of the same size as image
     # will store lab values instead of rgb values
     # TODO: how to pass in multiple values to pycuda function
-    lab_vector = [[[0, 0, 0] for w in width] for h in height]
+    lab_vector = np.empty_like(image)
 
 
     # Allocate memory on GPU
@@ -122,7 +124,7 @@ def doRGB2LABConversion():
     func = mod.get_function("DoRGBtoLABConversion")
     func(image_gpu, lab_gpu, block=(image.shape[1],image.shape[0],1)) # TODO: tweak the block sizes based on the width and height of the image
 
-    image_superpixels = numpy.empty_like(image)
+    image_superpixels = np.empty_like(image)
     cuda.memcpy_dtoh(image_superpixels, image_gpu)
 
     print(image_superpixels)
