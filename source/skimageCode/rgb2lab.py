@@ -82,12 +82,24 @@ def doRGB2LABConversion():
         	double zr = Z/Zr;
 
         	double fx, fy, fz;
-        	if(xr > epsilon)	fx = pow(xr, 1.0/3.0);
-        	else				fx = (kappa*xr + 16.0)/116.0;
-        	if(yr > epsilon)	fy = pow(yr, 1.0/3.0);
-        	else				fy = (kappa*yr + 16.0)/116.0;
-        	if(zr > epsilon)	fz = pow(zr, 1.0/3.0);
-        	else				fz = (kappa*zr + 16.0)/116.0;
+
+        	if(xr > epsilon){
+                fx = pow(xr, 1.0/3.0);
+            } else{
+                fx = (kappa*xr + 16.0)/116.0;
+            }
+
+        	if(yr > epsilon){
+                fy = pow(yr, 1.0/3.0);
+            } else{
+                fy = (kappa*yr + 16.0)/116.0;
+            }
+
+        	if(zr > epsilon){
+                fz = pow(zr, 1.0/3.0);
+            } else{
+                fz = (kappa*zr + 16.0)/116.0;
+            }
 
         	lval = 116.0*fy-16.0;
         	aval = 500.0*(fx-fy);
@@ -115,7 +127,7 @@ def doRGB2LABConversion():
             int g = image[3 * idx + 1];
             int b = image[3 * idx + 2];
 
-            RGB2LAB(r, g, b, lab[3 * idx + 0], lab[3 * idx + 1], lab[3 * idx + 2])
+            RGB2LAB(r, g, b, lab[3 * idx + 0], lab[3 * idx + 1], lab[3 * idx + 2]);
 
         }
 
