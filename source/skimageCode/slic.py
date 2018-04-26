@@ -141,7 +141,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         if image.shape[-1] != 3 and convert2lab:
             raise ValueError("Lab colorspace conversion requires a RGB image.")
         elif image.shape[-1] == 3:
-            image = rgb2lab(image)
+            image = rgb2lab(image.astype(np.float32))
 
     depth, height, width = image.shape[:3]
 
@@ -198,8 +198,9 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
     cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
 
-    assignments = np.empty(image32.shape[-2::-1], dtype = np.int32)
+    assignments = np.zeros(image32.shape[:-1], dtype=np.int32)
     assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
+    cuda.memcpy_htod(assignments_gpu, assignments) #TODO: make sure the cuda malloc didnt fail
 
     print "dims:", img_dim, centroids_dim, assignments.shape, image32.shape
 
@@ -211,7 +212,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     # about to call update_assignments_func
     # Parameters:
     #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignment
-    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
+    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0]/128, image32.shape[1]/8, image32.shape[2]))
 
     # try making image white on GPU TODO: remove this test code and remove top import
     white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))

@@ -5,6 +5,7 @@ white_func = SourceModule(
   //# This code should be run with one thread per pixel (max img size is 4096x4096)
   //# makes whole image white
   __global__ void make_white(float* img, int* dims) {
+      int n = dims[0]*dims[1]*dims[2];
 
       // convert from thread+block indices to 1D image index (idx)
       int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
@@ -18,7 +19,7 @@ white_func = SourceModule(
       bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
       idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
-      if(idx > dims[0]*dims[1]*dims[2]) return;
+      if(idx >= n) return; //change this to a small constant for trippy
       // use idx to set all pixels to white
       img[3 * idx + 0] = (float) 0.9; // R
       img[3 * idx + 1] = (float) 0.9; // G
@@ -137,7 +138,7 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
     //# don't try to act if your id is out of bounds of the picture
-    if(idx >= n){
+    if(idx >= x){
         return;
     }
 
@@ -158,7 +159,7 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
 
 recompute_centroids_func = SourceModule(
 """
-//# This code should be run with one thread per pixel (max img size is 4096x4096)
+//# This code should be run with one thread per pixel
 //# Responsible to updating pixel to superpixel assignments based on new centroids
 __global__ void recompute_centroids(float* img, float* img_dim, float* cents, float* cents_dim, float* assignment) {
 
