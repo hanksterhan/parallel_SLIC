@@ -204,19 +204,17 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     print "dims:", img_dim, centroids_dim, assignments.shape, image32.shape
 
     # should initialize pixel-centroid assignments
-    first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[0], image32.shape[1], image32.shape[2]))
+    first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
     cuda.memcpy_dtoh(assignments, assignments_gpu)
     print assignments
 
     # about to call update_assignments_func
     # Parameters:
     #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignment
-    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(image32.shape[0], image32.shape[1], image32.shape[2]))
-
-
+    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
 
     # try making image white on GPU TODO: remove this test code and remove top import
-    white_func(image_gpu, block=(image32.shape[0], image32.shape[1], image32.shape[2]), grid = (1, 1, 1))
+    white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
     new_image = np.empty_like(image32)
     print "new_image shape:", new_image.shape
     cuda.memcpy_dtoh(new_image, image_gpu)
