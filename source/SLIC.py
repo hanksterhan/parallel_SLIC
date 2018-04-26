@@ -16,7 +16,7 @@ def main():
   image = img_as_float(io.imread(args["image"]))
 
   # loop over different k values (k is the number of superpixels)
-  for numSegments in [100]:
+  for numSegments in [10]:
     print "running SLIC with k =", numSegments
 
     # RUN SLIC
