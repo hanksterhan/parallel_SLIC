@@ -84,7 +84,7 @@ update_assignments_func = SourceModule(
         for(g = cy-1; g <= cy+1; g++){
             for(h = cz-1; h <= cz+1; h++){
                 //# check bounds
-                if(f>=0 && g>=0 && h>=0 && f<=cents_dim[0] && g<=cents_dim[1] && h<=cents_dim[2]){
+                if(f>=0 && g>=0 && h>=0 && f<cents_dim[0] && g<cents_dim[1] && h<cents_dim[2]){
                     //# get centroid 1D indices from f, g, h, and cents_dim
                     kidx = f + g * cents_dim[0] + h * cents_dim[0] * cents_dim[1];
                     kl = cents[6 * kidx + 0];
@@ -138,7 +138,7 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
     //# don't try to act if your id is out of bounds of the picture
-    if(idx >= x){
+    if(idx >= n){
         return;
     }
 

@@ -168,51 +168,56 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     ratio = 1.0 / compactness
     #ratio = 1.0 #TODO: remove
 
-    image = np.ascontiguousarray(image * ratio)
-    print "image type", image.dtype
+    image = np.ascontiguousarray(image * ratio) #zyxc order, float64
+    image32 = np.ascontiguousarray(np.swapaxes(image.astype(np.float32), 0, 2)) #xyzc order, float32
 
-    image32 = np.ascontiguousarray(np.swapaxes(image.astype(np.float32), 0, 2))
-    print "image32 type", image32.dtype
 
-    # copy initial centroids to GPU
-    print "segments shape: ", segments.shape
-    print "segments", segments
     centroids = np.array([segment[::-1] for segment in segments], dtype = np.float32)
-    print "centroids:", centroids
     #centroids is now a 1D array with 6D centroids represented sequentially
     #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
-    #TODO: figure out the number of centroids spaced along x and y axes?
+
 
     # copy image information to GPU
     image_gpu = cuda.mem_alloc(image32.nbytes)
     cuda.memcpy_htod(image_gpu, image32)
 
+    # copy image dim information to GPU
     img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to just get xyz from xyzc
     img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
     cuda.memcpy_htod(img_dim_gpu, img_dim)
 
+    # copy centroids to GPU
     centroids_gpu = cuda.mem_alloc(centroids.nbytes)
     cuda.memcpy_htod(centroids_gpu, centroids)
 
+    # figure out the number of centroids spaced along each axis and copy to GPU
     centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
     centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
     cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
 
-    assignments = np.zeros(image32.shape[:-1], dtype=np.int32)
+    # copy (uninitialized) assignments to GPU
+    assignments = np.zeros(image32.shape[-2::-1], dtype=np.int32)
     assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
     cuda.memcpy_htod(assignments_gpu, assignments) #TODO: make sure the cuda malloc didnt fail
 
-    print "dims:", img_dim, centroids_dim, assignments.shape, image32.shape
+    print "dims:"
+    print "  img32", image32.shape, img_dim
+    print "  centroids", centroids.shape, centroids_dim
+    print "  assignments", assignments.shape
 
-    # should initialize pixel-centroid assignments
+    # initialize pixel-centroid assignments
     first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
     cuda.memcpy_dtoh(assignments, assignments_gpu)
+    print "INITAL assignments:"
     print assignments
 
     # about to call update_assignments_func
     # Parameters:
     #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignment
-    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0]/128, image32.shape[1]/8, image32.shape[2]))
+    update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
+    cuda.memcpy_dtoh(assignments, assignments_gpu)
+    print "updated assignments"
+    print assignments
 
     # try making image white on GPU TODO: remove this test code and remove top import
     white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
