@@ -159,8 +159,66 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
 
 recompute_centroids_func = SourceModule(
 """
-//# This code should be run with one thread per pixel
+//# This code should be run with one thread per centroid
 //# Responsible to updating pixel to superpixel assignments based on new centroids
-__global__ void recompute_centroids(float* img, float* img_dim, float* cents, float* cents_dim, float* assignment) {
+__global__ void recompute_centroids(float* img, int* img_dim, float* cents, int* cents_dim, int* assignment) {
+    int x, y, z;
+    x = img_dim[0];
+    y = img_dim[1];
+    z = img_dim[2];
+
+    //# get 1D pixel index from thread+block indices
+    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    bx = blockIdx.x;
+    by = blockIdx.y;
+    bz = blockIdx.z;
+    tx = threadIdx.x;
+    ty = threadIdx.y;
+    tz = threadIdx.z;
+    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+    idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+    //# don't try to act if your id is out of bounds of the picture
+    if(idx >= cents_dim[0]*cents_dim[1]*cents_dim[2]){
+        return;
+    }
+
+    //# loop over pixels
+    int f, g, h, pidx, cnt;
+    float sx, sy, sz, sl, sa, sb;
+    cnt = 0;
+    sx = 0;
+    sy = 0;
+    sz = 0;
+    sl = 0;
+    sa = 0;
+    sb = 0;
+    for(f = 0; f < x; f++){
+        for(g = 0; g < y; g++){
+            for(h = 0; h < z; h++){
+                pidx = f + g * x + h * x * y;
+
+                // if pixel belongs to this centroic, add it to sum
+                if(assignment[pidx] == idx){
+                    cnt += 1;
+                    sx += f;
+                    sy += g;
+                    sz += h;
+                    sl += img[3 * pidx + 0];
+                    sa += img[3 * pidx + 1];
+                    sb += img[3 * pidx + 2];
+                }
+            }
+        }
+    }
+
+    // update centroids with averages
+    cents[6 * idx + 0] = sl / cnt;
+    cents[6 * idx + 1] = sa / cnt;
+    cents[6 * idx + 2] = sb / cnt;
+    cents[6 * idx + 3] = sx / cnt;
+    cents[6 * idx + 4] = sy / cnt;
+    cents[6 * idx + 5] = sz / cnt;
 
 }""").get_function("recompute_centroids")
