@@ -168,7 +168,6 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     # so the values have the same meaning
     step = float(max((step_z, step_y, step_x)))
     ratio = 1.0 / compactness
-    #ratio = 1.0 #TODO: remove
 
     image = np.ascontiguousarray(image * ratio) #zyxc order, float64
 
