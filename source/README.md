@@ -1,5 +1,7 @@
 This is the top-level directory for your project source code
 
+Use nvidia-smi to watch the GPU
+
 ## workflows
  - boundary recall metric
  - timing
