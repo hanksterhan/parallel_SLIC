@@ -222,3 +222,37 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
     cents[6 * idx + 5] = sz / cnt;
 
 }""").get_function("recompute_centroids")
+
+average_color_func = SourceModule(
+"""
+__global__ void assign_average_color(float* img, int* img_dim, float* cents, int* assignment){
+    //# get image dimensions
+    int x, y, n;
+    x = img_dim[0];
+    y = img_dim[1];
+    n = x * y;
+
+    //# get 1D pixel index from thread+block indices
+    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    bx = blockIdx.x;
+    by = blockIdx.y;
+    bz = blockIdx.z;
+    tx = threadIdx.x;
+    ty = threadIdx.y;
+    tz = threadIdx.z;
+    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+    idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+    //# don't try to act if your id is out of bounds of the picture
+    if(idx >= n){
+        return;
+    }
+
+    centroid_id = assignments[idx]
+
+    img[3 * idx + 0] = cents[6 * centroid_id + 0];
+    img[3 * idx + 1] = cents[6 * centroid_id + 1];
+    img[3 * idx + 2] = cents[6 * centroid_id + 2];
+
+}""").get_function("assign_average_color")
