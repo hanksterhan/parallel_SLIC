@@ -22,7 +22,7 @@ def main():
   plt.axis("off")
 
   # loop over different k values (k is the number of superpixels)
-  for numSegments in [10]:
+  for numSegments in [20]:
     print "running SLIC with k =", numSegments
 
     # RUN SLIC
