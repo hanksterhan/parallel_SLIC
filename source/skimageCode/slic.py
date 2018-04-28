@@ -193,14 +193,14 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     #         max_iter, number of iterations: int
 
     # TODO: do this for cuda_labels as well
-    if enforce_connectivity:
-        segment_size = depth * height * width / n_segments
-        min_size = int(min_size_factor * segment_size)
-        max_size = int(max_size_factor * segment_size)
-        labels = _enforce_label_connectivity_cython(labels,
-                                                    n_segments,
-                                                    min_size,
-                                                    max_size)
+    #if enforce_connectivity:
+        # segment_size = depth * height * width / n_segments
+        # min_size = int(min_size_factor * segment_size)
+        # max_size = int(max_size_factor * segment_size)
+        # labels = _enforce_label_connectivity_cython(np.ascontiguousarray(cuda_labels.astype(Py_ssize_t)),
+        #                                             n_segments,
+        #                                             min_size,
+        #                                             max_size)
 
     if is_2d:
         #labels = labels[0]
@@ -209,7 +209,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     return cuda_labels
 
 def slic_cuda(image, centroids, slices):
-    image32 = np.ascontiguousarray(np.swapaxes(image.astype(np.float32), 0, 2)) #xyzc order, float32
+    image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
     # # try making image white on GPU TODO: remove this test code and remove top import
     # white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
     # new_image = np.empty_like(image32)
@@ -240,11 +240,12 @@ def slic_cuda(image, centroids, slices):
     cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
 
     # copy (uninitialized) assignments to GPU
-    assignments = np.zeros(image32.shape[-2::-1], dtype=np.int32)
+    assignments = np.zeros(image32.shape[:-1], dtype=np.int32)
     assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
-    cuda.memcpy_htod(assignments_gpu, assignments) #TODO: make sure the cuda malloc didnt fail
+    cuda.memcpy_htod(assignments_gpu, assignments)
 
     print "dims:"
+    print "  img", image.shape
     print "  img32", image32.shape, img_dim, image32.dtype, img_dim.dtype
     print "  centroids", centroids.shape, centroids_dim, centroids.dtype, centroids_dim.dtype
     print "  assignments", assignments.shape, assignments.dtype
@@ -253,7 +254,7 @@ def slic_cuda(image, centroids, slices):
     first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
     cuda.memcpy_dtoh(assignments, assignments_gpu)
     print "INITAL assignments:"
-    print assignments
+    print np.swapaxes(assignments, 0, 2)
 
     # about to call recompute_centroids_func
     # Parameters:
@@ -263,14 +264,18 @@ def slic_cuda(image, centroids, slices):
 
     # iterate 10 times
     for i in range(10):
+        #cuda.memcpy_htod(centroids_gpu, centroids)
         recompute_centroids_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2]))
         cuda.memcpy_dtoh(centroids, centroids_gpu)
+
         #print "updated centroids"
         #print centroids
 
+        #cuda.memcpy_htod(assignments_gpu, assignments)
         update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
         cuda.memcpy_dtoh(assignments, assignments_gpu)
         #print "updated assignments"
         #print assignments
-
-    return assignments
+    print "FINAL assignments:"
+    print np.swapaxes(assignments, 0, 2)
+    return np.swapaxes(assignments, 0, 2)

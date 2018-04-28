@@ -97,7 +97,7 @@ update_assignments_func = SourceModule(
                     //# for each compute dist
                     dist_lab = (pl - kl)*(pl - kl) + (pa - ka)*(pa - ka) + (pb - kb)*(pb - kb);
                     dist_xyz = (px - kx)*(px - kx) + (py - ky)*(py - ky) + (pz - kz)*(pz - kz);
-                    dist = dist_lab + dist_xyz; //#this is approximate, doesnt include sqrts
+                    dist = dist_lab;// + dist_xyz; //#this is approximate, doesnt include sqrts
 
                     //# if this centroid is closer, update assignment
                     if (dist < min_dist){
