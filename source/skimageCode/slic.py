@@ -124,6 +124,8 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         # Add channel as single last dimension
         image = image[..., np.newaxis]
 
+    original_image = image
+
     if spacing is None:
         spacing = np.ones(3)
     elif isinstance(spacing, (list, tuple)):
@@ -174,8 +176,17 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     centroids = np.array([segment[::-1] for segment in segments], dtype = np.float32)
     #centroids is now a 1D array with 6D centroids represented sequentially
     #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
+    centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
 
-    cuda_labels = slic_cuda(image, centroids, slices)
+    cuda_labels = slic_cuda(image, centroids, centroids_dim, slices)
+
+    # display resulting image
+    if is_2d:
+        cuda_labeled_img = mark_cuda_labels(original_image, centroids_dim, cuda_labels[0])
+        fig = plt.figure("cuda_labeled_img")
+        ax = fig.add_subplot(1, 1, 1)
+        ax.imshow(cuda_labeled_img[0])
+        plt.axis("off")
 
     print "about to call _slic_cython with parameters:"
     print " > img shape", image.shape
@@ -208,7 +219,18 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
 
     return cuda_labels
 
-def slic_cuda(image, centroids, slices):
+"""
+slic_cuda
+
+Parameters:
+ - image: zyxc ordered ndarray of type float64
+ - centroids: [k,6] ndarray of type float32, each 6 is ordered labxyz
+ - slices: list of Slice objects
+
+Returns:
+ - assignments: zyx ordered ndarray of type int32
+"""
+def slic_cuda(image, centroids, centroids_dim, slices):
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
     # # try making image white on GPU TODO: remove this test code and remove top import
     # white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
@@ -234,7 +256,6 @@ def slic_cuda(image, centroids, slices):
     cuda.memcpy_htod(centroids_gpu, centroids)
 
     # figure out the number of centroids spaced along each axis and copy to GPU
-    centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
     centroids_dim_int = centroids_dim.astype(int)
     centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
     cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
@@ -251,31 +272,107 @@ def slic_cuda(image, centroids, slices):
     print "  assignments", assignments.shape, assignments.dtype
 
     # initialize pixel-centroid assignments
-    first_assignment_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
+    first_assignments_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
     cuda.memcpy_dtoh(assignments, assignments_gpu)
     print "INITAL assignments:"
     print np.swapaxes(assignments, 0, 2)
 
     # about to call recompute_centroids_func
     # Parameters:
-    #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignment
+    #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignments
     print "INITIAL centroids:"
     print centroids
 
     # iterate 10 times
     for i in range(10):
-        #cuda.memcpy_htod(centroids_gpu, centroids)
-        recompute_centroids_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2]))
-        cuda.memcpy_dtoh(centroids, centroids_gpu)
-
+        recompute_centroids_func(
+            image_gpu,
+            img_dim_gpu,
+            centroids_gpu,
+            centroids_dim_gpu,
+            assignments_gpu,
+            block=(128,8,1),
+            grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
+        )
+        #cuda.memcpy_dtoh(centroids, centroids_gpu)
         #print "updated centroids"
         #print centroids
 
-        #cuda.memcpy_htod(assignments_gpu, assignments)
-        update_assignments_func(image_gpu, img_dim_gpu, centroids_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
-        cuda.memcpy_dtoh(assignments, assignments_gpu)
+        update_assignments_func(
+            image_gpu,
+            img_dim_gpu,
+            centroids_gpu,
+            centroids_dim_gpu,
+            assignments_gpu,
+            block=(128,8,1),
+            grid=(image32.shape[0], image32.shape[1], image32.shape[2])
+        )
+        #cuda.memcpy_dtoh(assignments, assignments_gpu)
         #print "updated assignments"
         #print assignments
+
+    cuda.memcpy_dtoh(assignments, assignments_gpu)
+    assignments = np.swapaxes(assignments, 0, 2)
     print "FINAL assignments:"
-    print np.swapaxes(assignments, 0, 2)
-    return np.swapaxes(assignments, 0, 2)
+    print assignments
+
+    return assignments
+
+"""
+average_color - superimpose segments onto image
+
+Parameters:
+ - image: yxc ordered ndarray
+ - assignments: yx ordered ndarray
+ - centroids: [k,6] ndarray of type float32, each 6 is ordered labxyz
+
+Returns
+"""
+def mark_cuda_labels(image, centroids_dim, assignments):
+    print image.shape
+    print centroids_dim
+    print assignments.shape
+
+    return image
+
+    ### Copy to GPU
+    image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
+    img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to just get xyz from xyzc
+    #centroids = TODO initialize as empty numpy array
+    centroids_dim_int = centroids_dim.astype(int)
+
+    image_gpu = cuda.mem_alloc(image32.nbytes)
+    img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
+    centroids_gpu = cuda.mem_alloc(centroids.nbytes)
+    centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
+    assignments_gpu = cuda.mem_alloc(assignments.nbytes)
+
+    cuda.memcpy_htod(image_gpu, image32)
+    cuda.memcpy_htod(img_dim_gpu, img_dim)
+    cuda.memcpy_htod(centroids_gpu, centroids)
+    cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
+    cuda.memcpy_htod(assignments_gpu, assignments)
+
+    # call recompute_centroids a final time to get final lab values
+    recompute_centroids_func(
+        image_gpu,
+        img_dim_gpu,
+        centroids_gpu,
+        centroids_dim_gpu,
+        assignments_gpu,
+        block=(128,8,1),
+        grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
+    )
+
+    average_color_func(
+        image_gpu,
+        img_dim_gpu,
+        centroids_gpu,
+        assignments_gpu,
+        block=(image.shape[2],image.shape[1], image.shape[0])
+    )
+
+    final_image = np.empty_like(image)
+    cuda.memcpy_dtoh(final_image, image_gpu)
+
+    return final_image
