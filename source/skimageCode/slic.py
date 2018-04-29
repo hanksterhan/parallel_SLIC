@@ -319,19 +319,22 @@ def slic_cuda(image, centroids, centroids_dim, slices):
     return assignments
 
 """
-average_color - superimpose segments onto image
+mark_cuda_labels - superimpose segments onto image
 
 Parameters:
  - image: yxc ordered ndarray
+ - centroids_dim: [k,6] ndarray of type float32, each 6 is ordered labxyz
  - assignments: yx ordered ndarray
- - centroids: [k,6] ndarray of type float32, each 6 is ordered labxyz
 
-Returns
+Returns:
+ - final_image: yxc ordered ndarray with pixels set to centroid values
 """
 def mark_cuda_labels(image, centroids_dim, assignments):
     print "image:", image.shape, image.dtype
-    #print centroids_dim
-    #print assignments.shape
+    print centroids_dim
+    print assignments.shape
+
+    #return image
 
     ### Copy to GPU
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
@@ -364,12 +367,14 @@ def mark_cuda_labels(image, centroids_dim, assignments):
         grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
     )
 
+    print "image:", image.shape, image.dtype
     average_color_func(
         image_gpu,
         img_dim_gpu,
         centroids_gpu,
         assignments_gpu,
-        block=(image.shape[2],image.shape[1], image.shape[0])
+        block=(128,8,1),
+        grid=(image32.shape[0], image32.shape[1], image32.shape[2])
     )
 
     final_image = np.empty_like(image32)
