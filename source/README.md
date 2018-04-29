@@ -9,7 +9,9 @@ Use nvidia-smi to watch the GPU
  - debug: why doesn't our code produce slic-like segments
  - debug: todos
  - slico
+ - enforce_connectivity on cuda_labels
  - abstract
  - other implementations of kernals (ex. per pixel recompute_centroids)
  - use pre-processing kernal
  - refactor code to make it easier to time different implementations
+ - display superpixels as average values
