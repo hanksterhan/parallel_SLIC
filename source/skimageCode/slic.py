@@ -329,17 +329,17 @@ Parameters:
 Returns
 """
 def mark_cuda_labels(image, centroids_dim, assignments):
-    print image.shape
-    print centroids_dim
-    print assignments.shape
-
-    return image
+    print "image:", image.shape, image.dtype
+    #print centroids_dim
+    #print assignments.shape
 
     ### Copy to GPU
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
     img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to just get xyz from xyzc
-    #centroids = TODO initialize as empty numpy array
+    centroids = np.empty([np.product(centroids_dim),6], dtype=np.float32)
     centroids_dim_int = centroids_dim.astype(int)
+    print "image32:", image32.shape, image32.dtype
+    print "cent dim:", centroids.shape, centroids_dim, centroids_dim_int
 
     image_gpu = cuda.mem_alloc(image32.nbytes)
     img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
@@ -372,7 +372,9 @@ def mark_cuda_labels(image, centroids_dim, assignments):
         block=(image.shape[2],image.shape[1], image.shape[0])
     )
 
-    final_image = np.empty_like(image)
+    final_image = np.empty_like(image32)
     cuda.memcpy_dtoh(final_image, image_gpu)
+    final_image = np.swapaxes(final_image, 0, 2).astype(float)
+    print "final img:", final_image.shape, final_image.dtype
 
     return final_image
