@@ -31,7 +31,7 @@ update_assignments_func = SourceModule(
   """
   //# This code should be run with one thread per pixel (max img size is 4096x4096)
   //# Responsible to updating pixel to superpixel assignments based on new centroids
-  __global__ void update_assignments(float* img, int* img_dim, float* cents, int* cents_dim, int* assignment) {
+  __global__ void update_assignments(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments) {
     int x, y, z, n;
     x = img_dim[0];
     y = img_dim[1];
@@ -69,7 +69,7 @@ update_assignments_func = SourceModule(
 
     //# get centroid 1D (cent) and 3D (cx, cy, cz) indices
     int cent, cx, cy, cz;
-    cent = assignment[idx];
+    cent = assignments[idx];
     cx = cent % cents_dim[0];
     cy = cent / cents_dim[0];
     cz = cent / (cents_dim[0] * cents_dim[1]);
@@ -97,11 +97,11 @@ update_assignments_func = SourceModule(
                     //# for each compute dist
                     dist_lab = (pl - kl)*(pl - kl) + (pa - ka)*(pa - ka) + (pb - kb)*(pb - kb);
                     dist_xyz = (px - kx)*(px - kx) + (py - ky)*(py - ky) + (pz - kz)*(pz - kz);
-                    dist = dist_lab + dist_xyz; //#this is approximate, doesnt include sqrts
+                    dist = dist_lab;// + dist_xyz; //#this is approximate, doesnt include sqrts
 
-                    //# if this centroid is closer, update assignment
+                    //# if this centroid is closer, update assignments
                     if (dist < min_dist){
-                        assignment[idx] = kidx;
+                        assignments[idx] = kidx;
                         min_dist = dist;
                     }
                 }
@@ -110,7 +110,7 @@ update_assignments_func = SourceModule(
     }
   }""").get_function("update_assignments")
 
-first_assignment_func = SourceModule("""
+first_assignments_func = SourceModule("""
 __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments){
     //# get image dimensions
     int x, y, z, n;
@@ -161,7 +161,7 @@ recompute_centroids_func = SourceModule(
 """
 //# This code should be run with one thread per centroid
 //# Responsible to updating pixel to superpixel assignments based on new centroids
-__global__ void recompute_centroids(float* img, int* img_dim, float* cents, int* cents_dim, int* assignment) {
+__global__ void recompute_centroids(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments) {
     int x, y, z;
     x = img_dim[0];
     y = img_dim[1];
@@ -200,7 +200,7 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
                 pidx = f + g * x + h * x * y;
 
                 // if pixel belongs to this centroic, add it to sum
-                if(assignment[pidx] == idx){
+                if(assignments[pidx] == idx){
                     cnt += 1;
                     sx += f;
                     sy += g;
@@ -222,3 +222,38 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
     cents[6 * idx + 5] = sz / cnt;
 
 }""").get_function("recompute_centroids")
+
+average_color_func = SourceModule(
+"""
+__global__ void assign_average_color(float* img, int* img_dim, float* cents, int* assignments){
+    //# get image dimensions
+    int x, y, n;
+    x = img_dim[0];
+    y = img_dim[1];
+    n = x * y;
+
+    //# get 1D pixel index from thread+block indices
+    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    bx = blockIdx.x;
+    by = blockIdx.y;
+    bz = blockIdx.z;
+    tx = threadIdx.x;
+    ty = threadIdx.y;
+    tz = threadIdx.z;
+    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+    idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+    //# don't try to act if your id is out of bounds of the picture
+    if(idx >= n){
+        return;
+    }
+
+    int centroid_id;
+    centroid_id = assignments[idx];
+
+    img[3 * idx + 0] = cents[6 * centroid_id + 0];
+    img[3 * idx + 1] = cents[6 * centroid_id + 1];
+    img[3 * idx + 2] = cents[6 * centroid_id + 2];
+
+}""").get_function("assign_average_color")
