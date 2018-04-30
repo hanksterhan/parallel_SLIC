@@ -3,6 +3,7 @@
 import collections as coll
 import numpy as np
 from scipy import ndimage as ndi
+from time import time
 
 from skimage.util import img_as_float, regular_grid
 from skimage.color import rgb2lab
@@ -190,7 +191,9 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
 
     if parallel:
         ## PARALLEL ##
+        tstart = time()
         labels = slic_cuda(image, centroids, centroids_dim, compactness)
+        tend = time()
         #labels = np.ascontiguousarray(labels)
 
         # display resulting image
@@ -209,7 +212,9 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         lg.debug(" > max iter %d", max_iter)
         lg.debug(" > spacing %s %s", spacing.shape, spacing)
         lg.debug(" > slic zero %s", slic_zero)
+        tstart = time()
         labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
+        tend = time()
 
     # TODO: do this for cuda_labels as well, currently get error: expected 'Py_ssize_t' but got 'int'
     # if enforce_connectivity:
@@ -222,6 +227,8 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     #         min_size,
     #         max_size
     #     )
+
+    print "TIME:", tend-tstart
 
     if is_2d:
         labels = labels[0]
