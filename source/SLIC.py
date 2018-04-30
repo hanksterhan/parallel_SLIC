@@ -1,48 +1,68 @@
 # imprt the necessary packages
 from skimageCode.slic import slic
 from skimage.segmentation import mark_boundaries
+from skimage.color import label2rgb
 from skimage.util import img_as_float
 from skimage import io
 import matplotlib.pyplot as plt
 import argparse
 
 def main():
-  # construct the argument parser and parse the arguments
-  ap = argparse.ArgumentParser()
-  ap.add_argument("-i", "--image", required = True, help = "Path to the image")
-  args = vars(ap.parse_args())
+    # construct the argument parser and parse the arguments
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-k", required = True, help = "Number of superpixels ")
+    ap.add_argument("-i", "--img", required = True, help = "Path to the image")
+    ap.add_argument("-p", action = "store_true", help = "Run parallel CUDA version")
+    ap.add_argument("-o", action = "store_true", help = "Run SLICO (ignores m)")
+    ap.add_argument("-c", action = "store_true", help = "Don't enforce connectivity")
+    ap.add_argument("-m", "--compactness", default = 10.0, help = "Compactness")
+    ap.add_argument("-n", "--iter", default = 10, help = "Number of iterations")
+    args = vars(ap.parse_args())
 
-  # load the image and convert it to a floating point data type
-  image = img_as_float(io.imread(args["image"]))
+    # load the image and convert it to a floating point data type
+    image = img_as_float(io.imread(args["img"]))
 
-  # show initial image
-  fig = plt.figure("original image")
-  ax = fig.add_subplot(1, 1, 1)
-  ax.imshow(image)
-  plt.axis("off")
-
-  # loop over different k values (k is the number of superpixels)
-  for numSegments in [20]:
-    print "running SLIC with k =", numSegments
+    # show initial image
+    fig = plt.figure("original image")
+    ax = fig.add_subplot(1, 1, 1)
+    ax.imshow(image)
+    plt.axis("off")
 
     # RUN SLIC
+    print "\nrunning SLIC on %s with k=%s" % (args["img"],  args["k"])
+    print "  parallel=%s, compactness=%s, slic_zero=%s" % \
+        (args["p"], args["compactness"], args["o"])
+    print "  enforce_connectivity=%s, iter=%s\n" % (args["c"], args["iter"])
+
+    #TODO: make sure all these parameters actually get used
     # default parameters for slic():
     #   n_segments=100, compactness=10.0, max_iter=10, sigma=0, spacing=None,
     #   multichannel=True, convert2lab=None, enforce_connectivity=True,
     #   min_size_factor=0.5, max_size_factor=3, slic_zero=False
-    segments = slic(image, n_segments=numSegments, sigma=0, compactness=24)
+    segments = slic(
+        image,
+        n_segments = int(args["k"]),
+        parallel = args["p"],
+        slic_zero = args["o"],
+        enforce_connectivity = args["c"],
+        compactness = float(args["compactness"]),
+        max_iter = int(args["iter"])
+    )
 
-    # superimpose segments onto image
+    # superimpose superpixels onto image
     image_segmented = mark_boundaries(image, segments, mode='inner')
 
+    # color image by superpixel averages #TODO: make this sommand line opt
+    # image_segmented = label2rgb(segments, image, kind = "avg")
+
     # show the output of SLIC
-    fig = plt.figure("Superpixels -- %d segments" % (numSegments))
+    fig = plt.figure("Superpixels -- %s segments" % (args["k"]))
     ax = fig.add_subplot(1, 1, 1)
     ax.imshow(image_segmented)
     plt.axis("off")
 
-  # show the plots
-  plt.show()
+    # show the plots
+    plt.show()
 
 if __name__=="__main__":
-  main()
+    main()
