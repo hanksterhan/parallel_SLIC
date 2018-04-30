@@ -18,10 +18,13 @@ import pyximport
 pyximport.install()
 from cython_slic import (_slic_cython, _enforce_label_connectivity_cython)
 
+# set up printing and logging
 np.set_printoptions(threshold = np.inf, linewidth = np.inf)
+import logging as lg
+lg.basicConfig(level=lg.DEBUG, format='%(message)s')
+#NOTE: set level=lg.DEBUG to see prints, level=lg.WARN to supress prints
 
-
-def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
+def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sigma=0,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False):
@@ -31,6 +34,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     image : 2D, 3D or 4D ndarray
         Input image, which can be 2D or 3D, and grayscale or multichannel
         (see `multichannel` parameter).
+    parallel : bool, if True run cuda slic, otherwise run skimage serial slic
     n_segments : int, optional
         The (approximate) number of labels in the segmented output image.
     compactness : float, optional
@@ -108,8 +112,9 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     Increasing the compactness parameter yields more square regions:
     >>> segments = slic(img, n_segments=100, compactness=20)
     """
-    print "... starting slic.py ..."
+    lg.debug("... starting slic.py ...")
 
+    # reshape image to 3D, record if it was originally 2D
     image = img_as_float(image)
     is_2d = False
     if image.ndim == 2:
@@ -124,13 +129,16 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         # Add channel as single last dimension
         image = image[..., np.newaxis]
 
+    # save image before beginning to transform it so it can be displayed later
     original_image = image
 
+    # initalize spacing
     if spacing is None:
         spacing = np.ones(3)
     elif isinstance(spacing, (list, tuple)):
         spacing = np.array(spacing, dtype=np.double)
 
+    # if sigma is set, perform gaussian smoothing
     if not isinstance(sigma, coll.Iterable):
         sigma = np.array([sigma, sigma, sigma], dtype=np.double)
         sigma /= spacing.astype(np.double)
@@ -141,6 +149,7 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
         sigma = list(sigma) + [0]
         image = ndi.gaussian_filter(image, sigma)
 
+    # convert RGB -> LAB
     if multichannel and (convert2lab or convert2lab is None):
         if image.shape[-1] != 3 and convert2lab:
             raise ValueError("Lab colorspace conversion requires a RGB image.")
@@ -178,59 +187,61 @@ def slic(image, n_segments=100, compactness=10., max_iter=10, sigma=0,
     #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
     centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
 
-    cuda_labels = slic_cuda(image, centroids, centroids_dim, slices)
 
-    # display resulting image
+    if parallel:
+        ## PARALLEL ##
+        labels = slic_cuda(image, centroids, centroids_dim)
+        #labels = np.ascontiguousarray(labels)
+
+        # display resulting image
+        if is_2d:
+            cuda_labeled_img = mark_cuda_labels(original_image, centroids_dim, labels[0])
+            fig = plt.figure("cuda_labeled_img")
+            ax = fig.add_subplot(1, 1, 1)
+            ax.imshow(cuda_labeled_img[0])
+            plt.axis("off")
+    else:
+        ## SERIAL ##
+        lg.debug("about to call _slic_cython with parameters:")
+        lg.debug(" > img shape %s", image.shape)
+        lg.debug(" > segments shape %s", segments.shape)
+        lg.debug(" > step %d", step)
+        lg.debug(" > max iter %d", max_iter)
+        lg.debug(" > spacing %s %s", spacing.shape, spacing)
+        lg.debug(" > slic zero %s", slic_zero)
+        labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
+
+    # TODO: do this for cuda_labels as well, currently get error: expected 'Py_ssize_t' but got 'int'
+    # if enforce_connectivity:
+    #     segment_size = depth * height * width / n_segments
+    #     min_size = int(min_size_factor * segment_size)
+    #     max_size = int(max_size_factor * segment_size)
+    #     labels = _enforce_label_connectivity_cython(
+    #         labels,
+    #         n_segments,
+    #         min_size,
+    #         max_size
+    #     )
+
     if is_2d:
-        cuda_labeled_img = mark_cuda_labels(original_image, centroids_dim, cuda_labels[0])
-        fig = plt.figure("cuda_labeled_img")
-        ax = fig.add_subplot(1, 1, 1)
-        ax.imshow(cuda_labeled_img[0])
-        plt.axis("off")
+        labels = labels[0]
 
-    print "about to call _slic_cython with parameters:"
-    print " > img shape", image.shape
-    print " > segments shape", segments.shape
-    print " > step", step
-    print " > max iter", max_iter
-    print " > spacing", spacing.shape, spacing
-    print " > slic zero", slic_zero
-    labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
-    #         image, alloc'd on GPU: float*
-    #         shape, dimensions in xyz
-    #         segments, initial seeds of centroids alloc'd on GPU: int*
-    #         centroids, 1d array of concatenated centroid labxyz: int*
-    #         step, step between initial centroids: float (32? 64? not sure)
-    #         max_iter, number of iterations: int
-
-    # TODO: do this for cuda_labels as well
-    #if enforce_connectivity:
-        # segment_size = depth * height * width / n_segments
-        # min_size = int(min_size_factor * segment_size)
-        # max_size = int(max_size_factor * segment_size)
-        # labels = _enforce_label_connectivity_cython(np.ascontiguousarray(cuda_labels.astype(Py_ssize_t)),
-        #                                             n_segments,
-        #                                             min_size,
-        #                                             max_size)
-
-    if is_2d:
-        #labels = labels[0]
-        cuda_labels = cuda_labels[0]
-
-    return cuda_labels
+    return labels
 
 """
-slic_cuda
+slic_cuda - performs slic to assign pixels to superpixels given initial
+    superpixel centroid locations
 
 Parameters:
  - image: zyxc ordered ndarray of type float64
  - centroids: [k,6] ndarray of type float32, each 6 is ordered labxyz
- - slices: list of Slice objects
+ - centroids_dim: xyz ordered ndarray of type int32, specifies shape of initial
+   centroid grid
 
 Returns:
  - assignments: zyx ordered ndarray of type int32
 """
-def slic_cuda(image, centroids, centroids_dim, slices):
+def slic_cuda(image, centroids, centroids_dim):
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
     # # try making image white on GPU TODO: remove this test code and remove top import
     # white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
@@ -265,25 +276,30 @@ def slic_cuda(image, centroids, centroids_dim, slices):
     assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
     cuda.memcpy_htod(assignments_gpu, assignments)
 
-    print "dims:"
-    print "  img", image.shape
-    print "  img32", image32.shape, img_dim, image32.dtype, img_dim.dtype
-    print "  centroids", centroids.shape, centroids_dim, centroids.dtype, centroids_dim.dtype
-    print "  assignments", assignments.shape, assignments.dtype
+    # debug logs
+    lg.debug("dims:")
+    lg.debug("  img %s", image.shape)
+    lg.debug("  img32 %s %s %s %s", image32.shape, img_dim, image32.dtype, img_dim.dtype)
+    lg.debug("  centroids %s %s %s %s", centroids.shape, centroids_dim, centroids.dtype, centroids_dim.dtype)
+    lg.debug("  assignments %s %s", assignments.shape, assignments.dtype)
 
     # initialize pixel-centroid assignments
-    first_assignments_func(img_dim_gpu, centroids_dim_gpu, assignments_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
+    first_assignments_func(
+        img_dim_gpu,
+        centroids_dim_gpu,
+        assignments_gpu,
+        block=(128,8,1),
+        grid=(image32.shape[0], image32.shape[1], image32.shape[2])
+    )
+
+    # debug logs
     cuda.memcpy_dtoh(assignments, assignments_gpu)
-    print "INITAL assignments:"
-    print np.swapaxes(assignments, 0, 2)
+    lg.debug("INITAL assignments:")
+    lg.debug(np.swapaxes(assignments, 0, 2))
+    lg.debug("INITIAL centroids:")
+    lg.debug(centroids)
 
-    # about to call recompute_centroids_func
-    # Parameters:
-    #   float* img, int* img_dim, float* cents, int* cents_dim, int* assignments
-    print "INITIAL centroids:"
-    print centroids
-
-    # iterate 10 times
+    # iterate 10 times as this is generally enough for convergence
     for i in range(10):
         recompute_centroids_func(
             image_gpu,
@@ -294,9 +310,6 @@ def slic_cuda(image, centroids, centroids_dim, slices):
             block=(128,8,1),
             grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
         )
-        #cuda.memcpy_dtoh(centroids, centroids_gpu)
-        #print "updated centroids"
-        #print centroids
 
         update_assignments_func(
             image_gpu,
@@ -307,14 +320,11 @@ def slic_cuda(image, centroids, centroids_dim, slices):
             block=(128,8,1),
             grid=(image32.shape[0], image32.shape[1], image32.shape[2])
         )
-        #cuda.memcpy_dtoh(assignments, assignments_gpu)
-        #print "updated assignments"
-        #print assignments
 
     cuda.memcpy_dtoh(assignments, assignments_gpu)
     assignments = np.swapaxes(assignments, 0, 2)
-    print "FINAL assignments:"
-    print assignments
+    lg.debug("FINAL assignments:")
+    lg.debug(assignments)
 
     return assignments
 
@@ -322,27 +332,21 @@ def slic_cuda(image, centroids, centroids_dim, slices):
 mark_cuda_labels - superimpose segments onto image
 
 Parameters:
- - image: yxc ordered ndarray
- - centroids_dim: [k,6] ndarray of type float32, each 6 is ordered labxyz
+ - image: zyxc ordered ndarray
+ - centroids_dim: xyz ordered ndarray of type int32, specifies shape of initial centroid grid
  - assignments: yx ordered ndarray
 
 Returns:
- - final_image: yxc ordered ndarray with pixels set to centroid values
+ - final_image: zyxc ordered ndarray with pixels set to centroid values
 """
 def mark_cuda_labels(image, centroids_dim, assignments):
-    print "image:", image.shape, image.dtype
-    print centroids_dim
-    print assignments.shape
+    lg.debug("mark_cuda_labels on image, dims = %s", image.shape)
 
-    #return image
-
-    ### Copy to GPU
+    # initialize structures and copy to GPU
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
-    img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to just get xyz from xyzc
+    img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to get xyz from xyzc
     centroids = np.empty([np.product(centroids_dim),6], dtype=np.float32)
     centroids_dim_int = centroids_dim.astype(int)
-    print "image32:", image32.shape, image32.dtype
-    print "cent dim:", centroids.shape, centroids_dim, centroids_dim_int
 
     image_gpu = cuda.mem_alloc(image32.nbytes)
     img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
@@ -356,7 +360,7 @@ def mark_cuda_labels(image, centroids_dim, assignments):
     cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
     cuda.memcpy_htod(assignments_gpu, assignments)
 
-    # call recompute_centroids a final time to get final lab values
+    # use recompute_centroids to find average rgb values
     recompute_centroids_func(
         image_gpu,
         img_dim_gpu,
@@ -367,7 +371,7 @@ def mark_cuda_labels(image, centroids_dim, assignments):
         grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
     )
 
-    print "image:", image.shape, image.dtype
+    # set pixel color based on the computed averages
     average_color_func(
         image_gpu,
         img_dim_gpu,
@@ -380,6 +384,5 @@ def mark_cuda_labels(image, centroids_dim, assignments):
     final_image = np.empty_like(image32)
     cuda.memcpy_dtoh(final_image, image_gpu)
     final_image = np.swapaxes(final_image, 0, 2).astype(float)
-    print "final img:", final_image.shape, final_image.dtype
 
     return final_image
