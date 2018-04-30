@@ -190,7 +190,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
 
     if parallel:
         ## PARALLEL ##
-        labels = slic_cuda(image, centroids, centroids_dim)
+        labels = slic_cuda(image, centroids, centroids_dim, compactness)
         #labels = np.ascontiguousarray(labels)
 
         # display resulting image
@@ -241,7 +241,7 @@ Parameters:
 Returns:
  - assignments: zyx ordered ndarray of type int32
 """
-def slic_cuda(image, centroids, centroids_dim):
+def slic_cuda(image, centroids, centroids_dim, compactness):
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
     # # try making image white on GPU TODO: remove this test code and remove top import
     # white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
@@ -317,6 +317,7 @@ def slic_cuda(image, centroids, centroids_dim):
             centroids_gpu,
             centroids_dim_gpu,
             assignments_gpu,
+            np.int32(compactness),
             block=(64,8,1),
             grid=(image32.shape[0], image32.shape[1], image32.shape[2])
         )

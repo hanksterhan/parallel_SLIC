@@ -31,15 +31,14 @@ update_assignments_func = SourceModule(
   """
   //# This code should be run with one thread per pixel (max img size is 4096x4096)
   //# Responsible to updating pixel to superpixel assignments based on new centroids
-  __global__ void update_assignments(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments) {
-    int x, y, z, n, k, s, m;
+  __global__ void update_assignments(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments, int m) {
+    int x, y, z, n, k, s;
     x = img_dim[0];
     y = img_dim[1];
     z = img_dim[2];
     n = x * y * z;
     k = cents_dim[0] * cents_dim[1] * cents_dim[2];
     s = sqrt(((float)n) / k);
-    m = 20;
 
     //# get 1D pixel index from thread+block indices
     int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
