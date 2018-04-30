@@ -21,7 +21,7 @@ from cython_slic import (_slic_cython, _enforce_label_connectivity_cython)
 # set up printing and logging
 np.set_printoptions(threshold = np.inf, linewidth = np.inf)
 import logging as lg
-lg.basicConfig(level=lg.DEBUG, format='%(message)s')
+lg.basicConfig(level=lg.WARN, format='%(message)s')
 #NOTE: set level=lg.DEBUG to see prints, level=lg.WARN to supress prints
 
 def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sigma=0,
@@ -180,7 +180,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     step = float(max((step_z, step_y, step_x)))
     ratio = 1.0 / compactness
 
-    image = np.ascontiguousarray(image * ratio) #zyxc order, float64
+    image = np.ascontiguousarray(image) #zyxc order, float64
 
     centroids = np.array([segment[::-1] for segment in segments], dtype = np.float32)
     #centroids is now a 1D array with 6D centroids represented sequentially
@@ -307,7 +307,7 @@ def slic_cuda(image, centroids, centroids_dim):
             centroids_gpu,
             centroids_dim_gpu,
             assignments_gpu,
-            block=(128,8,1),
+            block=(64,8,1),
             grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
         )
 
@@ -317,7 +317,7 @@ def slic_cuda(image, centroids, centroids_dim):
             centroids_gpu,
             centroids_dim_gpu,
             assignments_gpu,
-            block=(128,8,1),
+            block=(64,8,1),
             grid=(image32.shape[0], image32.shape[1], image32.shape[2])
         )
 
