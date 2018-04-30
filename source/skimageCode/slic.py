@@ -243,15 +243,6 @@ Returns:
 """
 def slic_cuda(image, centroids, centroids_dim, compactness):
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
-    # # try making image white on GPU TODO: remove this test code and remove top import
-    # white_func(image_gpu, img_dim_gpu, block=(128,8,1), grid=(image32.shape[0], image32.shape[1], image32.shape[2]))
-    # new_image = np.empty_like(image32)
-    # print "new_image shape:", new_image.shape
-    # cuda.memcpy_dtoh(new_image, image_gpu)
-    # fig = plt.figure("white? image")
-    # ax = fig.add_subplot(1, 1, 1)
-    # ax.imshow(np.swapaxes(new_image, 0, 2)[0])
-    # plt.axis("off")
 
     # copy image information to GPU
     image_gpu = cuda.mem_alloc(image32.nbytes)
