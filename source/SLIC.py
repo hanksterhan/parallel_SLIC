@@ -15,7 +15,7 @@ def main():
     ap.add_argument("-i", "--img", required = True, help = "Path to the image")
     ap.add_argument("-p", action = "store_true", help = "Run parallel CUDA version")
     ap.add_argument("-o", action = "store_true", help = "Run SLICO (ignores m)")
-    ap.add_argument("-c", action = "store_true", help = "Don't enforce connectivity")
+    ap.add_argument("-c", action = "store_false", help = "Don't enforce connectivity")
     ap.add_argument("-m", "--compactness", default = 10.0, help = "Compactness")
     ap.add_argument("-n", "--iter", default = 10, help = "Number of iterations")
     args = vars(ap.parse_args())
