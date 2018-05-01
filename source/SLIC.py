@@ -1,4 +1,4 @@
-# imprt the necessary packages
+# import the necessary packages
 from skimageCode.slic import slic, mark_cuda_labels
 from skimage.segmentation import mark_boundaries
 from skimage.color import label2rgb
