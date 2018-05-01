@@ -194,24 +194,29 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
     tend = time()
 
+    print labels.dtype
     # TODO: do this for cuda_labels as well, currently get error: expected 'Py_ssize_t' but got 'int'
-    # if enforce_connectivity:
-    #     labels = np.ascontiguousarray(labels)
-    #     segment_size = depth * height * width / n_segments
-    #     min_size = int(min_size_factor * segment_size)
-    #     max_size = int(max_size_factor * segment_size)
-    #     labels = _enforce_label_connectivity_cython(
-    #         labels,
-    #         n_segments,
-    #         min_size,
-    #         max_size
-    #     )
+    if enforce_connectivity:
+        labels = labels.astype(np.intp)
+        labels = np.ascontiguousarray(labels)
+        segment_size = depth * height * width / n_segments
+        min_size = int(min_size_factor * segment_size)
+        max_size = int(max_size_factor * segment_size)
+        labels = _enforce_label_connectivity_cython(
+            labels,
+            n_segments,
+            min_size,
+            max_size
+        )
+        print labels.dtype
+        labels = labels.astype(int)
 
     print "TIME:", tend-tstart
 
     if is_2d:
         labels = labels[0]
 
+    print labels.dtype
     return labels, centroids_dim
 
 """
