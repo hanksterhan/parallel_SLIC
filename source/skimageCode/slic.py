@@ -130,9 +130,6 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         # Add channel as single last dimension
         image = image[..., np.newaxis]
 
-    # save image before beginning to transform it so it can be displayed later
-    original_image = image
-
     # initalize spacing
     if spacing is None:
         spacing = np.ones(3)
@@ -189,35 +186,17 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
 
 
+    # actual call to slic, with timing
+    tstart = time()
     if parallel:
-        ## PARALLEL ##
-        tstart = time()
-        labels = slic_cuda(image, centroids, centroids_dim, compactness)
-        tend = time()
-        #labels = np.ascontiguousarray(labels)
-
-        # display resulting image
-        if is_2d:
-            cuda_labeled_img = mark_cuda_labels(original_image, centroids_dim, labels[0])
-            fig = plt.figure("cuda_labeled_img")
-            ax = fig.add_subplot(1, 1, 1)
-            ax.imshow(cuda_labeled_img[0])
-            plt.axis("off")
+        labels = slic_cuda(image, centroids, centroids_dim, compactness, max_iter)
     else:
-        ## SERIAL ##
-        lg.debug("about to call _slic_cython with parameters:")
-        lg.debug(" > img shape %s", image.shape)
-        lg.debug(" > segments shape %s", segments.shape)
-        lg.debug(" > step %d", step)
-        lg.debug(" > max iter %d", max_iter)
-        lg.debug(" > spacing %s %s", spacing.shape, spacing)
-        lg.debug(" > slic zero %s", slic_zero)
-        tstart = time()
         labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
-        tend = time()
+    tend = time()
 
     # TODO: do this for cuda_labels as well, currently get error: expected 'Py_ssize_t' but got 'int'
     # if enforce_connectivity:
+    #     labels = np.ascontiguousarray(labels)
     #     segment_size = depth * height * width / n_segments
     #     min_size = int(min_size_factor * segment_size)
     #     max_size = int(max_size_factor * segment_size)
@@ -233,7 +212,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     if is_2d:
         labels = labels[0]
 
-    return labels
+    return labels, centroids_dim
 
 """
 slic_cuda - performs slic to assign pixels to superpixels given initial
@@ -244,35 +223,34 @@ Parameters:
  - centroids: [k,6] ndarray of type float32, each 6 is ordered labxyz
  - centroids_dim: xyz ordered ndarray of type int32, specifies shape of initial
    centroid grid
+ - compactness: int, controls lab vs. xy distance weight
+ - max_iter: int, specifies number of iterations
 
 Returns:
  - assignments: zyx ordered ndarray of type int32
 """
-def slic_cuda(image, centroids, centroids_dim, compactness):
+def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
+    # initialize structures and copy to GPU
+    tstart1 = time()
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
-
-    # copy image information to GPU
-    image_gpu = cuda.mem_alloc(image32.nbytes)
-    cuda.memcpy_htod(image_gpu, image32)
-
-    # copy image dim information to GPU
     img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to just get xyz from xyzc
-    img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
-    cuda.memcpy_htod(img_dim_gpu, img_dim)
-
-    # copy centroids to GPU
-    centroids_gpu = cuda.mem_alloc(centroids.nbytes)
-    cuda.memcpy_htod(centroids_gpu, centroids)
-
-    # figure out the number of centroids spaced along each axis and copy to GPU
     centroids_dim_int = centroids_dim.astype(int)
-    centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
-    cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
-
-    # copy (uninitialized) assignments to GPU
     assignments = np.zeros(image32.shape[:-1], dtype=np.int32)
-    assignments_gpu = cuda.mem_alloc(assignments.nbytes) # this could also be image32.nbytes / 4 if converting to int is costly
-    cuda.memcpy_htod(assignments_gpu, assignments)
+
+    image_gpu = cuda.mem_alloc(image32.nbytes)
+    img_dim_gpu = cuda.mem_alloc(img_dim.nbytes)
+    centroids_gpu = cuda.mem_alloc(centroids.nbytes)
+    centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
+    assignments_gpu = cuda.mem_alloc(assignments.nbytes)
+
+    cuda.memcpy_htod(image_gpu, image32)
+    cuda.memcpy_htod(img_dim_gpu, img_dim)
+    cuda.memcpy_htod(centroids_gpu, centroids)
+    cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
+    # don't need to copy assignments to gpu because first_assignments_func initializes this memory
+
+    tend1 = time()
+    lg.warn("htod copy time: %s", tend1-tstart1)
 
     # debug logs
     lg.debug("dims:")
@@ -280,6 +258,9 @@ def slic_cuda(image, centroids, centroids_dim, compactness):
     lg.debug("  img32 %s %s %s %s", image32.shape, img_dim, image32.dtype, img_dim.dtype)
     lg.debug("  centroids %s %s %s %s", centroids.shape, centroids_dim, centroids.dtype, centroids_dim.dtype)
     lg.debug("  assignments %s %s", assignments.shape, assignments.dtype)
+
+    # done with copies, begin timing and call kernals
+    tstart2 = time()
 
     # initialize pixel-centroid assignments
     first_assignments_func(
@@ -291,14 +272,14 @@ def slic_cuda(image, centroids, centroids_dim, compactness):
     )
 
     # debug logs
-    cuda.memcpy_dtoh(assignments, assignments_gpu)
-    lg.debug("INITAL assignments:")
-    lg.debug(np.swapaxes(assignments, 0, 2))
-    lg.debug("INITIAL centroids:")
-    lg.debug(centroids)
+    # cuda.memcpy_dtoh(assignments, assignments_gpu)
+    # lg.debug("INITAL assignments:")
+    # lg.debug(np.swapaxes(assignments, 0, 2))
+    # lg.debug("INITIAL centroids:")
+    # lg.debug(centroids)
 
-    # iterate 10 times as this is generally enough for convergence
-    for i in range(10):
+    # iteratively updated centroids and assignments
+    for i in range(max_iter):
         recompute_centroids_func(
             image_gpu,
             img_dim_gpu,
@@ -320,7 +301,14 @@ def slic_cuda(image, centroids, centroids_dim, compactness):
             grid=(image32.shape[0], image32.shape[1], image32.shape[2])
         )
 
+    tend2 = time()
+    lg.warn("   kernal time: %s", tend2-tstart2)
+
+    tstart3 = time()
     cuda.memcpy_dtoh(assignments, assignments_gpu)
+    tend3 = time()
+    lg.warn("dtoh copy time: %s\n", tend3-tstart3)
+
     assignments = np.swapaxes(assignments, 0, 2)
     lg.debug("FINAL assignments:")
     lg.debug(assignments)

@@ -1,10 +1,11 @@
 # imprt the necessary packages
-from skimageCode.slic import slic
+from skimageCode.slic import slic, mark_cuda_labels
 from skimage.segmentation import mark_boundaries
 from skimage.color import label2rgb
 from skimage.util import img_as_float
 from skimage import io
 import matplotlib.pyplot as plt
+import numpy as np
 import argparse
 
 def main():
@@ -34,12 +35,11 @@ def main():
         (args["p"], args["compactness"], args["o"])
     print "  enforce_connectivity=%s, iter=%s\n" % (args["c"], args["iter"])
 
-    #TODO: make sure all these parameters actually get used
     # default parameters for slic():
     #   n_segments=100, compactness=10.0, max_iter=10, sigma=0, spacing=None,
     #   multichannel=True, convert2lab=None, enforce_connectivity=True,
     #   min_size_factor=0.5, max_size_factor=3, slic_zero=False
-    segments = slic(
+    segments, centroids_dim = slic(
         image,
         n_segments = int(args["k"]),
         parallel = args["p"],
@@ -49,14 +49,24 @@ def main():
         max_iter = int(args["iter"])
     )
 
-    # superimpose superpixels onto image
-    image_segmented = mark_boundaries(image, segments, mode='inner')
+    # display resulting image
+    if args["p"]:
+        # color image by superpixel averages
+        image_cuda = image[np.newaxis, ...]
+        image_segmented = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
 
-    # color image by superpixel averages #TODO: make this sommand line opt
-    # image_segmented = label2rgb(segments, image, kind = "avg")
+        # superimpose superpixels onto image
+        # image_segmented = mark_boundaries(image, segments, mode='inner')
+
+    else:
+        # color image by superpixel averages #TODO: make this command line opt
+        image_segmented = label2rgb(segments, image, kind = "avg")
+
+        # superimpose superpixels onto image
+        #image_segmented = mark_boundaries(image, segments, mode='inner')
 
     # show the output of SLIC
-    fig = plt.figure("Superpixels -- %s segments" % (args["k"]))
+    fig = plt.figure("Superpixels -- %s segments" % (np.product(centroids_dim)))
     ax = fig.add_subplot(1, 1, 1)
     ax.imshow(image_segmented)
     plt.axis("off")
