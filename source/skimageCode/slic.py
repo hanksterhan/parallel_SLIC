@@ -194,29 +194,22 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
     tend = time()
 
-    print labels.dtype
-    # TODO: do this for cuda_labels as well, currently get error: expected 'Py_ssize_t' but got 'int'
     if enforce_connectivity:
-        labels = labels.astype(np.intp)
-        labels = np.ascontiguousarray(labels)
         segment_size = depth * height * width / n_segments
         min_size = int(min_size_factor * segment_size)
         max_size = int(max_size_factor * segment_size)
         labels = _enforce_label_connectivity_cython(
-            labels,
+            np.ascontiguousarray(labels.astype(np.intp)),
             n_segments,
             min_size,
             max_size
         )
-        print labels.dtype
-        labels = labels.astype(int)
 
     print "TIME:", tend-tstart
 
     if is_2d:
         labels = labels[0]
 
-    print labels.dtype
     return labels, centroids_dim
 
 """
@@ -338,6 +331,8 @@ def mark_cuda_labels(image, centroids_dim, assignments):
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
     img_dim = np.array(image32.shape[:-1], dtype=np.int32) # indexing to get xyz from xyzc
     centroids = np.empty([np.product(centroids_dim),6], dtype=np.float32)
+    centroids_dim = centroids_dim.astype(np.int32)
+    assignments = assignments.astype(np.int32)
     centroids_dim_int = centroids_dim.astype(int)
 
     image_gpu = cuda.mem_alloc(image32.nbytes)

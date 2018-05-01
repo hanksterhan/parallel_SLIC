@@ -52,18 +52,19 @@ def main():
     # display resulting image
     if args["p"]:
         # color image by superpixel averages
-        image_cuda = image[np.newaxis, ...]
-        image_colored = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
+        # TODO: use this parallelized version, is currently reflected across
+        #       y=x line possibly due to np.ascontiguousarray
+        # image_cuda = image[np.newaxis, ...]
+        # image_colored = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
 
-        # superimpose superpixels onto image
-        image_segmented = mark_boundaries(image, segments, mode='inner')
-
-    else:
-        # color image by superpixel averages #TODO: make this command line opt
         image_colored = label2rgb(segments, image, kind = "avg")
 
-        # superimpose superpixels onto image
-        image_segmented = mark_boundaries(image, segments, mode='inner')
+    else:
+        # color image by superpixel averages
+        image_colored = label2rgb(segments, image, kind = "avg")
+
+    # superimpose superpixels onto image
+    image_segmented = mark_boundaries(image, segments, mode='inner')
 
     # show the output of SLIC
     fig = plt.figure("mosaic")
