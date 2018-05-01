@@ -12,10 +12,10 @@
 %       nthresh : Number of points in precision/recall curve.
 
 
-imgDir = 'original_images/';
-gtDir = 'ground_truth/';
-pbDir = 'boundaries/';
-outDir = 'results/';
+imgDir = '../original_images/';
+gtDir = '../ground_truth/';
+pbDir = '../boundaries/';
+outDir = '../results/';
 mkdir(outDir);
 nthresh = 5;
 

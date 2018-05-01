@@ -48,7 +48,8 @@ function [thresh,cntR,sumR,cntP,sumP] = evaluation_bdry_image(inFile,gtFile, prF
     end;
 
 
-    load(gtFile);
+    % im2bw(typecast(load(gtFile), 'int8'));
+    im2bw(rgb2gray(load(gtFile)))
     if isempty(groundTruth)
         error(' bad gtFile !');
     end;
