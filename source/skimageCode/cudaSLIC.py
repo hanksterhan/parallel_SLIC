@@ -201,7 +201,7 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
             for(h = 0; h < z; h++){
                 pidx = f + g * x + h * x * y;
 
-                // if pixel belongs to this centroic, add it to sum
+                // if pixel belongs to this centroid, add it to sum
                 if(assignments[pidx] == idx){
                     cnt += 1;
                     sx += f;

@@ -53,22 +53,26 @@ def main():
     if args["p"]:
         # color image by superpixel averages
         image_cuda = image[np.newaxis, ...]
-        image_segmented = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
+        image_colored = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
 
         # superimpose superpixels onto image
-        # image_segmented = mark_boundaries(image, segments, mode='inner')
+        image_segmented = mark_boundaries(image, segments, mode='inner')
 
     else:
         # color image by superpixel averages #TODO: make this command line opt
-        image_segmented = label2rgb(segments, image, kind = "avg")
+        image_colored = label2rgb(segments, image, kind = "avg")
 
         # superimpose superpixels onto image
-        #image_segmented = mark_boundaries(image, segments, mode='inner')
+        image_segmented = mark_boundaries(image, segments, mode='inner')
 
     # show the output of SLIC
-    fig = plt.figure("Superpixels -- %s segments" % (np.product(centroids_dim)))
+    fig = plt.figure("mosaic")
     ax = fig.add_subplot(1, 1, 1)
     ax.imshow(image_segmented)
+    plt.axis("off")
+    fig = plt.figure("dyed")
+    ax2 = fig.add_subplot(1, 1, 1)
+    ax2.imshow(image_colored)
     plt.axis("off")
 
     # show the plots
