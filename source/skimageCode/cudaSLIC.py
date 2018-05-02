@@ -1,31 +1,117 @@
 from pycuda.compiler import SourceModule
 
-white_func = SourceModule(
-  """
-  //# This code should be run with one thread per pixel (max img size is 4096x4096)
-  //# makes whole image white
-  __global__ void make_white(float* img, int* dims) {
-      int n = dims[0]*dims[1]*dims[2];
+first_assignments_func = SourceModule("""
+__global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments){
+    //# get image dimensions
+    int x, y, z, n;
+    x = img_dim[0];
+    y = img_dim[1];
+    z = img_dim[2];
+    n = x * y * z;
 
-      // convert from thread+block indices to 1D image index (idx)
-      int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
-      bx = blockIdx.x;
-      by = blockIdx.y;
-      bz = blockIdx.z;
-      tx = threadIdx.x;
-      ty = threadIdx.y;
-      tz = threadIdx.z;
-      tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
-      bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
-      idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+    //# get centroid seeds dimensions
+    int cx, cy, cz;
+    cx = cents_dim[0];
+    cy = cents_dim[1];
+    cz = cents_dim[2];
 
-      if(idx >= n) return; //change this to a small constant for trippy
-      // use idx to set all pixels to white
-      img[3 * idx + 0] = (float) 0.9; // R
-      img[3 * idx + 1] = (float) 0.9; // G
-      img[3 * idx + 2] = (float) 0.9; // B
+    //# get 1D pixel index from thread+block indices
+    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    bx = blockIdx.x;
+    by = blockIdx.y;
+    bz = blockIdx.z;
+    tx = threadIdx.x;
+    ty = threadIdx.y;
+    tz = threadIdx.z;
+    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+    idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
-  }""").get_function("make_white")
+    //# don't try to act if your id is out of bounds of the picture
+    if(idx >= n){
+        return;
+    }
+
+    //# get pixel 3D indices from 1D idx and img_dim
+    int px, py, pz;
+    px = idx % x;
+    py = idx / x;
+    pz = idx / (x * y);
+
+    //# get centroid label and save it to assignments
+    int i, j, k;
+    i = px * cx / x;
+    j = py * cy / y;
+    k = pz * cz / z;
+    assignments[idx] = i + (j * cx) + (k * cx * cy); //px + 100*py + 10000*pz;
+}
+""").get_function("first_assignments")
+
+recompute_centroids_func = SourceModule(
+"""
+//# This code should be run with one thread per centroid
+//# Responsible to updating pixel to superpixel assignments based on new centroids
+__global__ void recompute_centroids(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments) {
+  int x, y, z;
+  x = img_dim[0];
+  y = img_dim[1];
+  z = img_dim[2];
+
+  //# get 1D pixel index from thread+block indices
+  int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+  bx = blockIdx.x;
+  by = blockIdx.y;
+  bz = blockIdx.z;
+  tx = threadIdx.x;
+  ty = threadIdx.y;
+  tz = threadIdx.z;
+  tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+  bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+  idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+  //# don't try to act if your id is out of bounds of the picture
+  if(idx >= cents_dim[0]*cents_dim[1]*cents_dim[2]){
+      return;
+  }
+
+  //# loop over pixels
+  int f, g, h, pidx, cnt;
+  float sx, sy, sz, sl, sa, sb;
+  cnt = 0;
+  sx = 0;
+  sy = 0;
+  sz = 0;
+  sl = 0;
+  sa = 0;
+  sb = 0;
+  for(f = 0; f < x; f++){
+      for(g = 0; g < y; g++){
+          for(h = 0; h < z; h++){
+              pidx = f + g * x + h * x * y;
+
+              // if pixel belongs to this centroid, add it to sum
+              if(assignments[pidx] == idx){
+                  cnt += 1;
+                  sx += f;
+                  sy += g;
+                  sz += h;
+                  sl += img[3 * pidx + 0];
+                  sa += img[3 * pidx + 1];
+                  sb += img[3 * pidx + 2];
+              }
+          }
+      }
+  }
+
+  // update centroids with averages
+  cents[6 * idx + 0] = sl / cnt;
+  cents[6 * idx + 1] = sa / cnt;
+  cents[6 * idx + 2] = sb / cnt;
+  cents[6 * idx + 3] = sx / cnt;
+  cents[6 * idx + 4] = sy / cnt;
+  cents[6 * idx + 5] = sz / cnt;
+
+}""").get_function("recompute_centroids")
 
 update_assignments_func = SourceModule(
   """
@@ -112,119 +198,6 @@ update_assignments_func = SourceModule(
     }
   }""").get_function("update_assignments")
 
-first_assignments_func = SourceModule("""
-__global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments){
-    //# get image dimensions
-    int x, y, z, n;
-    x = img_dim[0];
-    y = img_dim[1];
-    z = img_dim[2];
-    n = x * y * z;
-
-    //# get centroid seeds dimensions
-    int cx, cy, cz;
-    cx = cents_dim[0];
-    cy = cents_dim[1];
-    cz = cents_dim[2];
-
-    //# get 1D pixel index from thread+block indices
-    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
-    bx = blockIdx.x;
-    by = blockIdx.y;
-    bz = blockIdx.z;
-    tx = threadIdx.x;
-    ty = threadIdx.y;
-    tz = threadIdx.z;
-    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
-    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
-    idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
-
-    //# don't try to act if your id is out of bounds of the picture
-    if(idx >= n){
-        return;
-    }
-
-    //# get pixel 3D indices from 1D idx and img_dim
-    int px, py, pz;
-    px = idx % x;
-    py = idx / x;
-    pz = idx / (x * y);
-
-    //# get centroid label and save it to assignments
-    int i, j, k;
-    i = px * cx / x;
-    j = py * cy / y;
-    k = pz * cz / z;
-    assignments[idx] = i + (j * cx) + (k * cx * cy); //px + 100*py + 10000*pz;
-}
-""").get_function("first_assignments")
-
-recompute_centroids_func = SourceModule(
-"""
-//# This code should be run with one thread per centroid
-//# Responsible to updating pixel to superpixel assignments based on new centroids
-__global__ void recompute_centroids(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments) {
-    int x, y, z;
-    x = img_dim[0];
-    y = img_dim[1];
-    z = img_dim[2];
-
-    //# get 1D pixel index from thread+block indices
-    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
-    bx = blockIdx.x;
-    by = blockIdx.y;
-    bz = blockIdx.z;
-    tx = threadIdx.x;
-    ty = threadIdx.y;
-    tz = threadIdx.z;
-    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
-    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
-    idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
-
-    //# don't try to act if your id is out of bounds of the picture
-    if(idx >= cents_dim[0]*cents_dim[1]*cents_dim[2]){
-        return;
-    }
-
-    //# loop over pixels
-    int f, g, h, pidx, cnt;
-    float sx, sy, sz, sl, sa, sb;
-    cnt = 0;
-    sx = 0;
-    sy = 0;
-    sz = 0;
-    sl = 0;
-    sa = 0;
-    sb = 0;
-    for(f = 0; f < x; f++){
-        for(g = 0; g < y; g++){
-            for(h = 0; h < z; h++){
-                pidx = f + g * x + h * x * y;
-
-                // if pixel belongs to this centroid, add it to sum
-                if(assignments[pidx] == idx){
-                    cnt += 1;
-                    sx += f;
-                    sy += g;
-                    sz += h;
-                    sl += img[3 * pidx + 0];
-                    sa += img[3 * pidx + 1];
-                    sb += img[3 * pidx + 2];
-                }
-            }
-        }
-    }
-
-    // update centroids with averages
-    cents[6 * idx + 0] = sl / cnt;
-    cents[6 * idx + 1] = sa / cnt;
-    cents[6 * idx + 2] = sb / cnt;
-    cents[6 * idx + 3] = sx / cnt;
-    cents[6 * idx + 4] = sy / cnt;
-    cents[6 * idx + 5] = sz / cnt;
-
-}""").get_function("recompute_centroids")
-
 average_color_func = SourceModule(
 """
 __global__ void assign_average_color(float* img, int* img_dim, float* cents, int* assignments){
@@ -259,3 +232,30 @@ __global__ void assign_average_color(float* img, int* img_dim, float* cents, int
     img[3 * idx + 2] = cents[6 * centroid_id + 2];
 
 }""").get_function("assign_average_color")
+
+white_func = SourceModule(
+  """
+  //# This code should be run with one thread per pixel (max img size is 4096x4096)
+  //# makes whole image white
+  __global__ void make_white(float* img, int* dims) {
+      int n = dims[0]*dims[1]*dims[2];
+
+      // convert from thread+block indices to 1D image index (idx)
+      int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+      bx = blockIdx.x;
+      by = blockIdx.y;
+      bz = blockIdx.z;
+      tx = threadIdx.x;
+      ty = threadIdx.y;
+      tz = threadIdx.z;
+      tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+      bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+      idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
+
+      if(idx >= n) return; //change this to a small constant for trippy
+      // use idx to set all pixels to white
+      img[3 * idx + 0] = (float) 0.9; // R
+      img[3 * idx + 1] = (float) 0.9; // G
+      img[3 * idx + 2] = (float) 0.9; // B
+
+  }""").get_function("make_white")
