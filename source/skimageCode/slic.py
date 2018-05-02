@@ -4,6 +4,7 @@ import collections as coll
 import numpy as np
 from scipy import ndimage as ndi
 from time import time
+from math import ceil
 
 from skimage.util import img_as_float, regular_grid
 from skimage.color import rgb2lab
@@ -266,7 +267,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
         centroids_dim_gpu,
         assignments_gpu,
         block=(128,8,1),
-        grid=(image32.shape[0], image32.shape[1], image32.shape[2])
+        grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
     )
 
     # debug logs
@@ -277,6 +278,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     # lg.debug(centroids)
 
     # iteratively updated centroids and assignments
+    print "before the loop"
     for i in range(max_iter):
         recompute_centroids_func(
             image_gpu,
@@ -284,8 +286,8 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             centroids_gpu,
             centroids_dim_gpu,
             assignments_gpu,
-            block=(64,8,1),
-            grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
+            block=(128,8,1),
+            grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
         )
 
         update_assignments_func(
@@ -295,10 +297,10 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             centroids_dim_gpu,
             assignments_gpu,
             np.int32(compactness),
-            block=(64,8,1),
-            grid=(image32.shape[0], image32.shape[1], image32.shape[2])
+            block=(128,8,1),
+            grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
         )
-
+    print "done"
     tend2 = time()
     lg.warn("   kernal time: %s", tend2-tstart2)
 

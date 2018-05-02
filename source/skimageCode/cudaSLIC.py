@@ -58,7 +58,7 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
   z = img_dim[2];
 
   //# get 1D pixel index from thread+block indices
-  int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+  unsigned long long bx, by, bz, tx, ty, tz, tidx, bidx, idx;
   bx = blockIdx.x;
   by = blockIdx.y;
   bz = blockIdx.z;
