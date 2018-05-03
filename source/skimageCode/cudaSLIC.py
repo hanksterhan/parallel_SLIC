@@ -16,7 +16,8 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     cz = cents_dim[2];
 
     //# get 1D pixel index from thread+block indices
-    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    int bx, by, bz, tx, ty, tz;
+    unsigned long long tidx, bidx, idx;
     bx = blockIdx.x;
     by = blockIdx.y;
     bz = blockIdx.z;
@@ -58,7 +59,8 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
   z = img_dim[2];
 
   //# get 1D pixel index from thread+block indices
-  unsigned long long bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+  int bx, by, bz, tx, ty, tz;
+  unsigned long long tidx, bidx, idx;
   bx = blockIdx.x;
   by = blockIdx.y;
   bz = blockIdx.z;
@@ -127,7 +129,8 @@ update_assignments_func = SourceModule(
     s = sqrt(((float)n) / k);
 
     //# get 1D pixel index from thread+block indices
-    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    int bx, by, bz, tx, ty, tz;
+    unsigned long long tidx, bidx, idx;
     bx = blockIdx.x;
     by = blockIdx.y;
     bz = blockIdx.z;
@@ -208,7 +211,8 @@ __global__ void assign_average_color(float* img, int* img_dim, float* cents, int
     n = x * y;
 
     //# get 1D pixel index from thread+block indices
-    int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+    int bx, by, bz, tx, ty, tz;
+    unsigned long long tidx, bidx, idx;
     bx = blockIdx.x;
     by = blockIdx.y;
     bz = blockIdx.z;
@@ -241,7 +245,8 @@ white_func = SourceModule(
       int n = dims[0]*dims[1]*dims[2];
 
       // convert from thread+block indices to 1D image index (idx)
-      int bx, by, bz, tx, ty, tz, tidx, bidx, idx;
+      int bx, by, bz, tx, ty, tz;
+      unsigned long long tidx, bidx, idx;
       bx = blockIdx.x;
       by = blockIdx.y;
       bz = blockIdx.z;

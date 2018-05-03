@@ -54,10 +54,14 @@ def main():
         # color image by superpixel averages
         # TODO: use this parallelized version, is currently reflected across
         #       y=x line possibly due to np.ascontiguousarray
-        # image_cuda = image[np.newaxis, ...]
-        # image_colored = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
+        image_cuda = image[np.newaxis, ...]
+        image_colored = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
 
-        image_colored = label2rgb(segments, image, kind = "avg")
+        image_colored2 = label2rgb(segments, image, kind = "avg")
+        fig = plt.figure("dyed label2rgb")
+        ax = fig.add_subplot(1, 1, 1)
+        ax.imshow(image_colored2)
+        plt.axis("off")
 
     else:
         # color image by superpixel averages

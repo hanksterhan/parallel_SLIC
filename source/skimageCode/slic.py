@@ -173,6 +173,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
                                segments_color],
                               axis=-1).reshape(-1, 3 + image.shape[3])
     segments = np.ascontiguousarray(segments)
+    #print "segments", segments
 
     # we do the scaling of ratio in the same way as in the SLIC paper
     # so the values have the same meaning
@@ -182,6 +183,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     image = np.ascontiguousarray(image) #zyxc order, float64
 
     centroids = np.array([segment[::-1] for segment in segments], dtype = np.float32)
+    #print "centroids", centroids
     #centroids is now a 1D array with 6D centroids represented sequentially
     #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
     centroids_dim = np.array([len(range(slices[n].start, image.shape[n], slices[n].step)) for n in [2, 1, 0]], dtype=np.int32)
@@ -196,15 +198,16 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     tend = time()
 
     if enforce_connectivity:
-        segment_size = depth * height * width / n_segments
-        min_size = int(min_size_factor * segment_size)
-        max_size = int(max_size_factor * segment_size)
-        labels = _enforce_label_connectivity_cython(
-            np.ascontiguousarray(labels.astype(np.intp)),
-            n_segments,
-            min_size,
-            max_size
-        )
+        labels = np.ascontiguousarray(labels.astype(np.intp))
+        # segment_size = depth * height * width / n_segments
+        # min_size = int(min_size_factor * segment_size)
+        # max_size = int(max_size_factor * segment_size)
+        # labels = _enforce_label_connectivity_cython(
+        #     np.ascontiguousarray(labels.astype(np.intp)),
+        #     n_segments,
+        #     min_size,
+        #     max_size
+        # )
 
     print "TIME:", tend-tstart
 
@@ -269,6 +272,8 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
         block=(128,8,1),
         grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
     )
+    # cuda.memcpy_dtoh(assignments, assignments_gpu)
+    # print assignments
 
     # debug logs
     # cuda.memcpy_dtoh(assignments, assignments_gpu)
@@ -287,7 +292,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             centroids_dim_gpu,
             assignments_gpu,
             block=(128,8,1),
-            grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
+            grid=(int(ceil(float(centroids_dim_int[0])/128)), int(ceil(float(centroids_dim_int[1])/8)), centroids_dim_int[2])
         )
 
         update_assignments_func(
@@ -300,9 +305,8 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             block=(128,8,1),
             grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
         )
-    print "done"
     tend2 = time()
-    lg.warn("   kernal time: %s", tend2-tstart2)
+    lg.warn("   kernel time: %s", tend2-tstart2)
 
     tstart3 = time()
     cuda.memcpy_dtoh(assignments, assignments_gpu)
@@ -310,6 +314,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     lg.warn("dtoh copy time: %s\n", tend3-tstart3)
 
     assignments = np.swapaxes(assignments, 0, 2)
+    #print assignments
     lg.debug("FINAL assignments:")
     lg.debug(assignments)
 
@@ -345,7 +350,7 @@ def mark_cuda_labels(image, centroids_dim, assignments):
 
     cuda.memcpy_htod(image_gpu, image32)
     cuda.memcpy_htod(img_dim_gpu, img_dim)
-    cuda.memcpy_htod(centroids_gpu, centroids)
+    #cuda.memcpy_htod(centroids_gpu, centroids)
     cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
     cuda.memcpy_htod(assignments_gpu, assignments)
 
@@ -357,7 +362,7 @@ def mark_cuda_labels(image, centroids_dim, assignments):
         centroids_dim_gpu,
         assignments_gpu,
         block=(128,8,1),
-        grid=(centroids_dim_int[0], centroids_dim_int[1], centroids_dim_int[2])
+        grid=(int(ceil(float(centroids_dim_int[0])/128)), int(ceil(float(centroids_dim_int[1])/8)), centroids_dim_int[2])
     )
 
     # set pixel color based on the computed averages
@@ -367,7 +372,7 @@ def mark_cuda_labels(image, centroids_dim, assignments):
         centroids_gpu,
         assignments_gpu,
         block=(128,8,1),
-        grid=(image32.shape[0], image32.shape[1], image32.shape[2])
+        grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
     )
 
     final_image = np.empty_like(image32)
