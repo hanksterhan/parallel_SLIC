@@ -75,7 +75,7 @@ def main():
     ax = fig.add_subplot(1, 1, 1)
     ax.imshow(image_segmented)
     plt.axis("off")
-    fig = plt.figure("dyed")
+    fig = plt.figure("dyed %s" % centroids_dim)
     ax2 = fig.add_subplot(1, 1, 1)
     ax2.imshow(image_colored)
     plt.axis("off")
