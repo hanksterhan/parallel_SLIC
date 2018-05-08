@@ -1,6 +1,6 @@
 # import the necessary packages
 from skimageCode.slic import slic, mark_cuda_labels
-from skimage.segmentation import mark_boundaries
+from skimage.segmentation import find_boundaries
 from skimage.color import label2rgb
 from skimage.util import img_as_float
 from skimage import io
@@ -68,12 +68,18 @@ def main():
         image_colored = label2rgb(segments, image, kind = "avg")
 
     # superimpose superpixels onto image
-    image_segmented = mark_boundaries(image, segments, mode='inner')
+    image_segmented = find_boundaries(segments, mode='inner').astype(int)
+    for idx1, row in enumerate(image_segmented):
+        for idx2,num in enumerate(row):
+            if num == 1:
+                image_segmented[idx1][idx2] = 255
+
+    io.imsave("boundary_recall/boundaries/6046.png", image_segmented)
 
     # show the output of SLIC
     fig = plt.figure("mosaic")
     ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(image_segmented)
+    ax.imshow(image_segmented, cmap='gray')
     plt.axis("off")
     fig = plt.figure("dyed %s" % centroids_dim)
     ax2 = fig.add_subplot(1, 1, 1)
@@ -81,7 +87,7 @@ def main():
     plt.axis("off")
 
     # show the plots
-    plt.show()
+    # plt.show()
 
 if __name__=="__main__":
     main()

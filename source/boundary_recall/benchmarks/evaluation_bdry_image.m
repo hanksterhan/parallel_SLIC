@@ -48,8 +48,10 @@ function [thresh,cntR,sumR,cntP,sumP] = evaluation_bdry_image(inFile,gtFile, prF
     end;
 
 
-    % im2bw(typecast(load(gtFile), 'int8'));
-    im2bw(rgb2gray(load(gtFile)))
+
+
+    load(gtFile)
+
     if isempty(groundTruth)
         error(' bad gtFile !');
     end;
@@ -78,6 +80,7 @@ function [thresh,cntR,sumR,cntP,sumP] = evaluation_bdry_image(inFile,gtFile, prF
             bmap = logical(seg2bdry(segs{t},'imageSize'));
         end;
 
+        disp(size(bmap))
         % thin the thresholded pb to make sure boundaries are standard thickness
         if thinpb,
             bmap = double(bwmorph(bmap, 'thin', inf));    % OJO
