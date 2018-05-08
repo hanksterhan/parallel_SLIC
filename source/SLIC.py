@@ -24,7 +24,7 @@ def main():
     image = img_as_float(io.imread(args["img"]))
 
     # show initial image
-    fig = plt.figure("original image")
+    fig = plt.figure("%s %s -- original" % (args["img"], image.shape))
     ax = fig.add_subplot(1, 1, 1)
     ax.imshow(image)
     plt.axis("off")
@@ -55,13 +55,13 @@ def main():
         # TODO: use this parallelized version, is currently reflected across
         #       y=x line possibly due to np.ascontiguousarray
         image_cuda = image[np.newaxis, ...]
-        image_colored = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
-
-        image_colored2 = label2rgb(segments, image, kind = "avg")
-        fig = plt.figure("dyed label2rgb")
+        image_colored_cuda = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
+        fig = plt.figure("%s %s -- dyed cuda %s" % (args["img"], image.shape, centroids_dim))
         ax = fig.add_subplot(1, 1, 1)
-        ax.imshow(image_colored2)
+        ax.imshow(image_colored_cuda)
         plt.axis("off")
+
+        image_colored = label2rgb(segments, image, kind = "avg")
 
     else:
         # color image by superpixel averages
@@ -77,11 +77,11 @@ def main():
     io.imsave("boundary_recall/boundaries/6046.png", image_segmented)
 
     # show the output of SLIC
-    fig = plt.figure("mosaic")
+    fig = plt.figure("%s %s -- mosaic %s" % (args["img"], image.shape, centroids_dim))
     ax = fig.add_subplot(1, 1, 1)
     ax.imshow(image_segmented, cmap='gray')
     plt.axis("off")
-    fig = plt.figure("dyed %s" % centroids_dim)
+    fig = plt.figure("%s %s -- dyed skimage %s" % (args["img"], image.shape, centroids_dim))
     ax2 = fig.add_subplot(1, 1, 1)
     ax2.imshow(image_colored)
     plt.axis("off")
