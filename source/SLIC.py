@@ -1,6 +1,6 @@
 # import the necessary packages
 from skimageCode.slic import slic, mark_cuda_labels
-from skimage.segmentation import find_boundaries
+from skimage.segmentation import mark_boundaries, find_boundaries
 from skimage.color import label2rgb
 from skimage.util import img_as_float
 from skimage import io
@@ -18,6 +18,8 @@ def main():
     ap.add_argument("-c", action = "store_false", help = "Don't enforce connectivity")
     ap.add_argument("-m", "--compactness", default = 10.0, help = "Compactness")
     ap.add_argument("-n", "--iter", default = 10, help = "Number of iterations")
+    ap.add_argument("-b", action = "store_true", help = "Save Hard Boundary Map for Boundary Recall")
+    ap.add_argument("-f", help = "Output filepath for Boundary Map")
     args = vars(ap.parse_args())
 
     # load the image and convert it to a floating point data type
@@ -67,27 +69,42 @@ def main():
         # color image by superpixel averages
         image_colored = label2rgb(segments, image, kind = "avg")
 
-    # superimpose superpixels onto image
-    image_segmented = find_boundaries(segments, mode='inner').astype(int)
-    for idx1, row in enumerate(image_segmented):
-        for idx2,num in enumerate(row):
-            if num == 1:
-                image_segmented[idx1][idx2] = 255
+    # Run and save boundary map
+    if args["b"]:
+        # find boundaries, returns a 2D array of integers. 0 for black, 1 for white boundary
+        boundary_map = find_boundaries(segments, mode='inner').astype(int)
 
-    io.imsave("boundary_recall/boundaries/6046.png", image_segmented)
+        # recode 1 to 255 so when the array is saved as an image, the png knows that 1 means white
+        for idx, row in enumerate(boundary_map):
+            for col, num in enumerate(row):
+                if num == 1:
+                    boundary_map[idx][col] = 255
+
+        # save image
+        io.imsave(args["f"], boundary_map)
+
+    # superimpose superpixels onto image
+    image_segmented = mark_boundaries(image, segments, mode='inner')
 
     # show the output of SLIC
     fig = plt.figure("%s %s -- mosaic %s" % (args["img"], image.shape, centroids_dim))
     ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(image_segmented, cmap='gray')
+    ax.imshow(image_segmented)
     plt.axis("off")
     fig = plt.figure("%s %s -- dyed skimage %s" % (args["img"], image.shape, centroids_dim))
     ax2 = fig.add_subplot(1, 1, 1)
     ax2.imshow(image_colored)
     plt.axis("off")
 
+    if args["b"]:
+        fig = plt.figure("%s %s -- boundary map %s" % (args["img"], image.shape, centroids_dim))
+        ax3 = fig.add_subplot(1, 1, 1)
+        ax3.imshow(boundary_map, cmap="gray")
+        plt.axis("off")
+
+
     # show the plots
-    # plt.show()
+    plt.show()
 
 if __name__=="__main__":
     main()
