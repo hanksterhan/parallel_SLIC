@@ -24,8 +24,8 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     tx = threadIdx.x;
     ty = threadIdx.y;
     tz = threadIdx.z;
-    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
-    bidx = bx + by * gridDim.x  + bz * gridDim.x  * gridDim.y;
+    tidx = tx + ty * blockDim.x;// + tz * blockDim.x * blockDim.y;
+    bidx = bx + by * gridDim.x;// + bz * gridDim.x  * gridDim.y;
     idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
     //# don't try to act if your id is out of bounds of the picture
@@ -117,8 +117,8 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
 
 update_assignments_func = SourceModule(
   """
-  //# This code should be run with one thread per pixel (max img size is 4096x4096)
-  //# Responsible to updating pixel to superpixel assignments based on new centroids
+  //# This code should be run with one thread per pixel
+  //# Responsible for updating pixel to superpixel assignments based on new centroids
   __global__ void update_assignments(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments, int m) {
     int x, y, z, n, k, s;
     x = img_dim[0];
