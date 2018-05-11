@@ -12,9 +12,9 @@
 %       nthresh : Number of points in precision/recall curve.
 
 
-imgDir = '../test_original_images/';
-gtDir = '../test_ground_truth/';
-pbDir = '../test_boundaries/';
+imgDir = '../tai/tai_exp_original_images/all/';
+gtDir = '../tai/tai_exp_ground_truth/all/';
+pbDir = '../tai/tai_exp_boundaries/all/';
 outDir = '../results1/';
 mkdir(outDir);
 nthresh = 5;
