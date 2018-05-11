@@ -15,7 +15,7 @@
 imgDir = '../original_images/';
 gtDir = '../ground_truth/';
 pbDir = '../boundaries/';
-outDir = '../results/';
+outDir = '../results1/';
 mkdir(outDir);
 nthresh = 5;
 

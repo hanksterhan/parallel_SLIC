@@ -198,16 +198,16 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     tend = time()
 
     if enforce_connectivity:
-        labels = np.ascontiguousarray(labels.astype(np.intp))
-        # segment_size = depth * height * width / n_segments
-        # min_size = int(min_size_factor * segment_size)
-        # max_size = int(max_size_factor * segment_size)
-        # labels = _enforce_label_connectivity_cython(
-        #     np.ascontiguousarray(labels.astype(np.intp)),
-        #     n_segments,
-        #     min_size,
-        #     max_size
-        # )
+        #labels = np.ascontiguousarray(labels.astype(np.intp))
+        segment_size = depth * height * width / n_segments
+        min_size = int(min_size_factor * segment_size)
+        max_size = int(max_size_factor * segment_size)
+        labels = _enforce_label_connectivity_cython(
+            np.ascontiguousarray(labels.astype(np.intp)),
+            n_segments,
+            min_size,
+            max_size
+        )
 
     print "TIME:", tend-tstart
 

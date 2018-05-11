@@ -1,15 +1,7 @@
-#!/bin/bash
+#! /bin/bash
 
-python slic.py -i input/alexgrey.jpg &
-python slic.py -i input/kandinsky1.jpg &
-python slic.py -i input/kandinsky2.jpg &
-python slic.py -i input/leafchair.jpg &
-python slic.py -i input/crouch.jpg &
-python slic.py -i input/crum.jpg &
-python slic.py -i input/badams.jpg &
-python slic.py -i input/chakras.jpg &
-python slic.py -i input/flower.jpg &
-python slic.py -i input/plants.jpg &
-python slic.py -i input/circle.jpg &
-python slic.py -i input/mother.jpg &
-python slic.py -i input/ahuizotl.jpg &
+python SLIC.py -p -i boundary_recall/original_images/00000001.jpg -b -f boundary_recall/boundaries/00000001p.png -k 100 &
+python SLIC.py -p -i boundary_recall/original_images/00000002.jpg -b -f boundary_recall/boundaries/00000002p.png -k 100 &
+python SLIC.py -p -i boundary_recall/original_images/00000004.jpg -b -f boundary_recall/boundaries/00000004p.png -k 100 &
+python SLIC.py -p -i boundary_recall/original_images/00000005.jpg -b -f boundary_recall/boundaries/00000005p.png -k 100 &
+python SLIC.py -p -i boundary_recall/original_images/00000009.jpg -b -f boundary_recall/boundaries/00000009p.png -k 100 &

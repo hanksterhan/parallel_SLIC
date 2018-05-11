@@ -24,8 +24,8 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     tx = threadIdx.x;
     ty = threadIdx.y;
     tz = threadIdx.z;
-    tidx = tx + ty * blockDim.x;// + tz * blockDim.x * blockDim.y;
-    bidx = bx + by * gridDim.x;// + bz * gridDim.x  * gridDim.y;
+    tidx = tx + ty * blockDim.x + tz * blockDim.x * blockDim.y;
+    bidx = bx + by * gridDim.x + bz * gridDim.x  * gridDim.y;
     idx = tidx + bidx * blockDim.x * blockDim.y * blockDim.z;
 
     //# don't try to act if your id is out of bounds of the picture
@@ -44,7 +44,7 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
     i = px * cx / x;
     j = py * cy / y;
     k = pz * cz / z;
-    assignments[idx] = i + (j * cx) + (k * cx * cy); //px + 100*py + 10000*pz;
+    assignments[idx] = i + (j * cx) + (k * cx * cy);
 }
 """).get_function("first_assignments")
 
