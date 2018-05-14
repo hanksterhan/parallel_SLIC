@@ -1,4 +1,4 @@
-Our project does not require any special environment setups, but the library imports need to execute. This means that libraries such as PyCuda must be imported and thus the computer this program is run on needs a GPU.
+Our project does not require any special environment setups, but the library imports need to execute. This means that libraries such as PyCuda must be imported and thus the computer this program is run on requires a GPU.
 
 ## To run SLIC 
 To run the sequential version of SLIC by skimage:
