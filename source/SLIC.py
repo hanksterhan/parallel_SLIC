@@ -13,7 +13,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-k", required=True, help="Number of superpixels ")
     ap.add_argument("-i", "--img", required=True, help="Path to the image")
-    ap.add_argument("-p", action="store_true", help="Run parallel CUDA version")
+    ap.add_argument("-p", action="store_true",
+        help="Run parallel CUDA version (ignores o)")
     ap.add_argument("-o", action="store_true", help="Run SLICO (ignores m)")
     ap.add_argument("-c", action="store_false",
         help="Don't enforce connectivity")
@@ -75,9 +76,8 @@ def main():
     # DISPLAY SEGMENTS
     # optionally color image by superpixel averages with CUDA
     if args["p"]:
-        # color image by superpixel averages
-        # TODO: use this parallelized version, is currently reflected across
-        #       y=x line possibly due to np.ascontiguousarray
+        # is currently reflected across y=x line
+        # when connectivity is enforced possibly due to np.ascontiguousarray
         image_cuda = image[np.newaxis, ...]
         image_colored_cuda = \
             mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
