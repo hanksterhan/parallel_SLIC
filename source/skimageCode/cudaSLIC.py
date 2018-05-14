@@ -1,6 +1,9 @@
 from pycuda.compiler import SourceModule
 
 first_assignments_func = SourceModule("""
+//# This code should be run with one thread per pixel
+//# Takes the image and the grid of initial centroids and calculates the
+//# assignments for each pixel
 __global__ void first_assignments(int* img_dim, int* cents_dim,
     int* assignments){
     //# get image dimensions
@@ -52,7 +55,7 @@ __global__ void first_assignments(int* img_dim, int* cents_dim,
 recompute_centroids_func = SourceModule(
 """
 //# This code should be run with one thread per centroid
-//# Responsible to updating pixel to superpixel assignments
+//# Responsible for updating pixel to superpixel assignments
 //# based on new centroids
 __global__ void recompute_centroids(float* img, int* img_dim, float* cents,
     int* cents_dim, int* assignments) {
@@ -173,9 +176,7 @@ update_assignments_func = SourceModule(
     //# loop over (up to) 27 nearby centroids and reassign if necessary
     int f, g, h, kidx, kl, ka, kb, kx, ky, kz;
     double dist, dist_lab, dist_xyz, min_dist;
-    min_dist = 999999; //#TODO: maybe make maxfloat
-    //# maybe: CUDART_INF_F or CUDART_INF defined in
-    //# /usr/local/cuda/include/math_constants.h
+    min_dist = 999999;
 
     for(f = cx-1; f <= cx+1; f++){
         for(g = cy-1; g <= cy+1; g++){
@@ -213,6 +214,9 @@ update_assignments_func = SourceModule(
 
 average_color_func = SourceModule(
 """
+//# This should be run with one thread per pixel
+//# Each pixel looks at its assignment, queries that centroid,
+//# and sets its color to the centroid's color value
 __global__ void assign_average_color(float* img, int* img_dim, float* cents,
       int* assignments){
     //# get image dimensions
@@ -239,9 +243,9 @@ __global__ void assign_average_color(float* img, int* img_dim, float* cents,
         return;
     }
 
-    int centroid_id;
-    centroid_id = assignments[idx];
+    int centroid_id = assignments[idx];
 
+    //# set your 3 color coordinates to the centroid's avg
     img[3 * idx + 0] = cents[6 * centroid_id + 0];
     img[3 * idx + 1] = cents[6 * centroid_id + 1];
     img[3 * idx + 2] = cents[6 * centroid_id + 2];
@@ -251,7 +255,6 @@ __global__ void assign_average_color(float* img, int* img_dim, float* cents,
 white_func = SourceModule(
   """
   //# This code should be run with one thread per pixel
-  //# (max img size is 4096x4096)
   //# makes whole image white
   __global__ void make_white(float* img, int* dims) {
       int n = dims[0]*dims[1]*dims[2];
