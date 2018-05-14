@@ -1,22 +1,18 @@
 # coding=utf-8
 
+
+
 import numpy as np
 from time import time
 from math import ceil
 
 from skimage.util import img_as_float, regular_grid
+from skimage.segmentation._slic import (_slic_cython,
+                                        _enforce_label_connectivity_cython)
 from skimage.color import rgb2lab
+
 from pycuda import driver as cuda
-from pycuda.compiler import SourceModule
-from pycuda import autoinit
-
 from cudaSLIC import *
-
-import matplotlib.pyplot as plt
-
-import pyximport
-pyximport.install()
-from cython_slic import (_slic_cython, _enforce_label_connectivity_cython)
 
 # set up printing and logging
 np.set_printoptions(threshold = np.inf, linewidth = np.inf)
@@ -24,80 +20,65 @@ import logging as lg
 lg.basicConfig(level=lg.WARN, format='%(message)s')
 #NOTE: set level=lg.DEBUG to see prints, level=lg.WARN to supress prints
 
+"""
+slic - performs superpixel segmentation using k-means clustering in
+       color-(x,y,z) space.
+
+Parameters:
+ - image: 2D, 3D or 4D ndarray, can be grayscale or multichannel
+ - parallel: bool, if True run cuda slic, otherwise run skimage serial slic
+ - n_segments: int, (approximate) number of superpixels
+ - compactness: float, balances color vs space distance. Higher values give
+     more weight to space distance, making superpixel shapes more round.
+ - max_iter: int, maximum number of iterations of k-means
+ - spacing: array-like of 3 floats, controls the weights of the distances
+     along z, y, and x dimensions during k-means clustering.
+ - multichannel: bool, whether the last axis of the image is to be interpreted
+     as multiple channels or another spatial dimension.
+ - convert2lab: bool, whether the input should be converted to lab colorspace
+     prior to segmentation. The input image *must* be RGB. Highly recommended.
+     This option defaults to ``True`` when ``multichannel=True`` *and*
+     ``image.shape[-1] == 3``.
+ - enforce_connectivity: bool, whether the generated segments must be connected
+ - min_size_factor: float, when enforcing connectivity the proportion of the
+     minimum segment size to be removed with respect
+     to the supposed segment size ```depth*width*height/n_segments```
+ - max_size_factor: float, when enforcing connectivity the proportion of the
+     maximum connected segment size. A value of 3 works in most of the cases.
+ - slic_zero: bool, whether to run SLIC-zero, the zero-parameter mode of SLIC.
+     Only possible when not running in parallel.
+
+Returns:
+ - labels: array with superpixel index for each pixel
+ - centroids_dim: dimensions of the initial grid of centroids
+
+Raises:
+ - ValueError: If ``convert2lab`` is set to ``True`` but the last array
+    dimension is not of length 3.
+
+Notes:
+ - The image is rescaled to be in [0, 1] prior to processing.
+ - Images of shape (M, N, 3) are interpreted as 2D RGB images by default. To
+  interpret them as 3D with the last dimension having length 3, use
+  `multichannel=False`.
+
+References:
+ - skimage: https://github.com/scikit-image/scikit-image/blob/v0.13.0/skimage/segmentation/slic_superpixels.py
+ - slic: Radhakrishna Achanta, Appu Shaji, Kevin Smith, Aurelien Lucchi,
+    Pascal Fua, and Sabine Süsstrunk, SLIC Superpixels Compared to
+    State-of-the-art Superpixel Methods, TPAMI, May 2012.
+ - slic-zero: http://ivrg.epfl.ch/research/superpixels#SLICO
+"""
 def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False):
-    """Segments image using k-means clustering in Color-(x,y,z) space.
-    Parameters
-    ----------
-    image : 2D, 3D or 4D ndarray
-        Input image, which can be 2D or 3D, and grayscale or multichannel
-        (see `multichannel` parameter).
-    parallel : bool, if True run cuda slic, otherwise run skimage serial slic
-    n_segments : int, optional
-        The (approximate) number of labels in the segmented output image.
-    compactness : float, optional
-        Balances color proximity and space proximity. Higher values give
-        more weight to space proximity, making superpixel shapes more
-        square/cubic. In SLICO mode, this is the initial compactness.
-    max_iter : int, optional
-        Maximum number of iterations of k-means.
-    spacing : (3,) array-like of floats, optional
-        The voxel spacing along each image dimension. By default, `slic`
-        assumes uniform spacing (same voxel resolution along z, y and x).
-        This parameter controls the weights of the distances along z, y,
-        and x during k-means clustering.
-    multichannel : bool, optional
-        Whether the last axis of the image is to be interpreted as multiple
-        channels or another spatial dimension.
-    convert2lab : bool, optional
-        Whether the input should be converted to Lab colorspace prior to
-        segmentation. The input image *must* be RGB. Highly recommended.
-        This option defaults to ``True`` when ``multichannel=True`` *and*
-        ``image.shape[-1] == 3``.
-    enforce_connectivity: bool, optional
-        Whether the generated segments are connected or not
-    min_size_factor: float, optional
-        Proportion of the minimum segment size to be removed with respect
-        to the supposed segment size ```depth*width*height/n_segments```
-    max_size_factor: float, optional
-        Proportion of the maximum connected segment size. A value of 3 works
-        in most of the cases.
-    slic_zero: bool, optional
-        Run SLIC-zero, the zero-parameter mode of SLIC. [2]_
-    Returns
-    -------
-    labels : 2D or 3D array
-        Integer mask indicating segment labels.
-    Raises
-    ------
-    ValueError
-        If ``convert2lab`` is set to ``True`` but the last array
-        dimension is not of length 3.
-    Notes
-    -----
-    * The image is rescaled to be in [0, 1] prior to processing.
-    * Images of shape (M, N, 3) are interpreted as 2D RGB images by default. To
-      interpret them as 3D with the last dimension having length 3, use
-      `multichannel=False`.
-    References
-    ----------
-    .. [1] Radhakrishna Achanta, Appu Shaji, Kevin Smith, Aurelien Lucchi,
-        Pascal Fua, and Sabine Süsstrunk, SLIC Superpixels Compared to
-        State-of-the-art Superpixel Methods, TPAMI, May 2012.
-    .. [2] http://ivrg.epfl.ch/research/superpixels#SLICO
-    Examples
-    --------
-    >>> from skimage.segmentation import slic
-    >>> from skimage.data import astronaut
-    >>> img = astronaut()
-    >>> segments = slic(img, n_segments=100, compactness=10)
-    Increasing the compactness parameter yields more square regions:
-    >>> segments = slic(img, n_segments=100, compactness=20)
-    """
     lg.debug("... starting slic.py ...")
 
+
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    PRE-PROCESSING
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     # reshape image to 3D, record if it was originally 2D
     image = img_as_float(image)
     is_2d = False
@@ -113,12 +94,6 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
         # Add channel as single last dimension
         image = image[..., np.newaxis]
 
-    # initalize spacing
-    if spacing is None:
-        spacing = np.ones(3)
-    elif isinstance(spacing, (list, tuple)):
-        spacing = np.array(spacing, dtype=np.double)
-
     # convert RGB -> LAB
     if multichannel and (convert2lab or convert2lab is None):
         if image.shape[-1] != 3 and convert2lab:
@@ -126,7 +101,24 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
         elif image.shape[-1] == 3:
             image = rgb2lab(image.astype(np.float32))
 
+    # make contiguous is memory
+    image = np.ascontiguousarray(image) #zyxc order, float64
+
+
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    INITIALIZE PARAMETERS USED FOR SEGMENTATION
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+    ########################################################
+    # initalize segments, step, and spacing for _slic_cython
+    # this section of code comes mostly from the skimage library
     depth, height, width = image.shape[:3]
+
+    # initalize spacing
+    if spacing is None:
+        spacing = np.ones(3)
+    elif isinstance(spacing, (list, tuple)):
+        spacing = np.array(spacing, dtype=np.double)
 
     # initialize cluster centroids for desired number of segments
     grid_z, grid_y, grid_x = np.mgrid[:depth, :height, :width]
@@ -144,25 +136,30 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
                                segments_color],
                               axis=-1).reshape(-1, 3 + image.shape[3])
     segments = np.ascontiguousarray(segments)
-    #print "segments", segments
 
-    # we do the scaling of ratio in the same way as in the SLIC paper
-    # so the values have the same meaning
     step = float(max((step_z, step_y, step_x)))
+
+    # ratio is to scale image for _clic_cython, which expects an image
+    # that is already scaled by 1/compactness
     ratio = 1.0 / compactness
 
-    image = np.ascontiguousarray(image) #zyxc order, float64
+    ######################################################
+    # initalize centroids and centroids_dim for slic_cuda
 
+    # centroids is a 1D array with 6D centroids represented sequentially
+    # (example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
     centroids = np.array([segment[::-1] for segment in segments],
         dtype = np.float32)
-    #print "centroids", centroids
-    #centroids is now a 1D array with 6D centroids represented sequentially
-    #(example: [l1 a1 b1 x1 y1 z1 l2 a2 b2 x2 y2 z2 l3 a3 b3 x3 y3 z3])
+
+    # compute the dimensions of the initial grid of centroids
     centroids_dim = \
         np.array([len(range(slices[n].start, image.shape[n], slices[n].step))
         for n in [2, 1, 0]], dtype=np.int32)
 
 
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    SEGMENTATION
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     # actual call to slic, with timing
     tstart = time()
     if parallel:
@@ -172,7 +169,6 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
         labels = _slic_cython(image * ratio, segments, step, max_iter, spacing,
             slic_zero)
         # print "%s, %s, %s," % (0, 0, 0), # for piping into csv
-
     tend = time()
 
     if enforce_connectivity:
@@ -194,6 +190,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
 
     return labels, centroids_dim
 
+
 """
 slic_cuda - performs slic to assign pixels to superpixels given initial
     superpixel centroid locations
@@ -207,7 +204,8 @@ Parameters:
  - max_iter: int, specifies number of iterations
 
 Returns:
- - assignments: zyx ordered ndarray of type int32
+ - assignments: zyx ordered ndarray of type int32. Encodes the
+   superpixel assignment for each pixel.
 """
 def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     htod_stream = cuda.Stream()
@@ -235,7 +233,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     # don't need to copy assignments to gpu because first_assignments_func
     # initializes this memory
 
-    htod_stream.synchronize()
+    htod_stream.synchronize() # wait for memcpys to complete
     tend1 = time()
     lg.warn("htod copy time: %s", tend1-tstart1)
 
@@ -298,7 +296,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             stream=kernel_stream
         )
 
-    kernel_stream.synchronize()
+    kernel_stream.synchronize() # wait for kernels to complete
     tend2 = time()
     lg.warn("   kernel time: %s", tend2-tstart2)
 

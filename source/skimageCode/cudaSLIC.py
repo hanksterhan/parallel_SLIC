@@ -1,9 +1,10 @@
+from pycuda import autoinit
 from pycuda.compiler import SourceModule
 
 first_assignments_func = SourceModule("""
 //# This code should be run with one thread per pixel
-//# Takes the image and the grid of initial centroids and calculates the
-//# assignments for each pixel
+//# Takes the image dimensions and the diminsions of the grid of initial
+//# centroids and calculates the assignments for each pixel
 __global__ void first_assignments(int* img_dim, int* cents_dim,
     int* assignments){
     //# get image dimensions
@@ -255,7 +256,8 @@ __global__ void assign_average_color(float* img, int* img_dim, float* cents,
 white_func = SourceModule(
   """
   //# This code should be run with one thread per pixel
-  //# makes whole image white
+  //# makes whole image light grey (purpose in writing was to test
+  //# index conversion and calling a kernal with pycuda)
   __global__ void make_white(float* img, int* dims) {
       int n = dims[0]*dims[1]*dims[2];
 
