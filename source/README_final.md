@@ -1,4 +1,6 @@
-
+## To run SLIC Superpixel Algorithm
+ - $python SLIC.py -k 100 -i input/flower.jpg
+k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. For a more detailed breakdown of command line arguments, run $python SLIC.py -h
 
 ## To calculate boundary recall:
  - Choose image from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) and save it in boundary_recall/original_images (ex. boundary_recall/original_images/3063.jpg)
