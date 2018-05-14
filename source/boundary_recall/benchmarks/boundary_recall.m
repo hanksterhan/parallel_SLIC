@@ -14,8 +14,8 @@
 
 imgDir = '../tai/tai_exp_original_images/all/';
 gtDir = '../tai/tai_exp_ground_truth/all/';
-pbDir = '../tai/tai_exp_boundaries/all/';
-outDir = '../results1/';
+pbDir = '../tai/boundaries/';
+outDir = '../tai/resultst/';
 mkdir(outDir);
 nthresh = 5;
 
