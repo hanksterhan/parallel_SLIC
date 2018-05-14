@@ -1,7 +1,8 @@
 from pycuda.compiler import SourceModule
 
 first_assignments_func = SourceModule("""
-__global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments){
+__global__ void first_assignments(int* img_dim, int* cents_dim,
+    int* assignments){
     //# get image dimensions
     int x, y, z, n;
     x = img_dim[0];
@@ -51,8 +52,10 @@ __global__ void first_assignments(int* img_dim, int* cents_dim, int* assignments
 recompute_centroids_func = SourceModule(
 """
 //# This code should be run with one thread per centroid
-//# Responsible to updating pixel to superpixel assignments based on new centroids
-__global__ void recompute_centroids(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments) {
+//# Responsible to updating pixel to superpixel assignments
+//# based on new centroids
+__global__ void recompute_centroids(float* img, int* img_dim, float* cents,
+    int* cents_dim, int* assignments) {
   int x, y, z;
   x = img_dim[0];
   y = img_dim[1];
@@ -118,8 +121,10 @@ __global__ void recompute_centroids(float* img, int* img_dim, float* cents, int*
 update_assignments_func = SourceModule(
   """
   //# This code should be run with one thread per pixel
-  //# Responsible for updating pixel to superpixel assignments based on new centroids
-  __global__ void update_assignments(float* img, int* img_dim, float* cents, int* cents_dim, int* assignments, int m) {
+  //# Responsible for updating pixel to superpixel assignments
+  //# based on new centroids
+  __global__ void update_assignments(float* img, int* img_dim, float* cents,
+      int* cents_dim, int* assignments, int m) {
     int x, y, z, n, k, s;
     x = img_dim[0];
     y = img_dim[1];
@@ -169,15 +174,18 @@ update_assignments_func = SourceModule(
     int f, g, h, kidx, kl, ka, kb, kx, ky, kz;
     double dist, dist_lab, dist_xyz, min_dist;
     min_dist = 999999; //#TODO: maybe make maxfloat
-    //# maybe: CUDART_INF_F or CUDART_INF defined in /usr/local/cuda/include/math_constants.h
+    //# maybe: CUDART_INF_F or CUDART_INF defined in
+    //# /usr/local/cuda/include/math_constants.h
 
     for(f = cx-1; f <= cx+1; f++){
         for(g = cy-1; g <= cy+1; g++){
             for(h = cz-1; h <= cz+1; h++){
                 //# check bounds
-                if(f>=0 && g>=0 && h>=0 && f<cents_dim[0] && g<cents_dim[1] && h<cents_dim[2]){
+                if(f>=0 && g>=0 && h>=0 && f<cents_dim[0] && g<cents_dim[1]
+                      && h<cents_dim[2]){
                     //# get centroid 1D indices from f, g, h, and cents_dim
-                    kidx = f + g * cents_dim[0] + h * cents_dim[0] * cents_dim[1];
+                    kidx = f + g * cents_dim[0] +
+                        h * cents_dim[0] * cents_dim[1];
                     kl = cents[6 * kidx + 0];
                     ka = cents[6 * kidx + 1];
                     kb = cents[6 * kidx + 2];
@@ -186,9 +194,11 @@ update_assignments_func = SourceModule(
                     kz = cents[6 * kidx + 5];
 
                     //# for each compute dist
-                    dist_lab = (pl - kl)*(pl - kl) + (pa - ka)*(pa - ka) + (pb - kb)*(pb - kb);
-                    dist_xyz = (px - kx)*(px - kx) + (py - ky)*(py - ky) + (pz - kz)*(pz - kz);
-                    dist = dist_lab + dist_xyz * m / s; //#this is approximate, doesnt include sqrts
+                    dist_lab = (pl - kl)*(pl - kl) + (pa - ka)*(pa - ka) +
+                        (pb - kb)*(pb - kb);
+                    dist_xyz = (px - kx)*(px - kx) + (py - ky)*(py - ky) +
+                        (pz - kz)*(pz - kz);
+                    dist = dist_lab + dist_xyz * m / s;
 
                     //# if this centroid is closer, update assignments
                     if (dist < min_dist){
@@ -203,7 +213,8 @@ update_assignments_func = SourceModule(
 
 average_color_func = SourceModule(
 """
-__global__ void assign_average_color(float* img, int* img_dim, float* cents, int* assignments){
+__global__ void assign_average_color(float* img, int* img_dim, float* cents,
+      int* assignments){
     //# get image dimensions
     int x, y, n;
     x = img_dim[0];
@@ -239,7 +250,8 @@ __global__ void assign_average_color(float* img, int* img_dim, float* cents, int
 
 white_func = SourceModule(
   """
-  //# This code should be run with one thread per pixel (max img size is 4096x4096)
+  //# This code should be run with one thread per pixel
+  //# (max img size is 4096x4096)
   //# makes whole image white
   __global__ void make_white(float* img, int* dims) {
       int n = dims[0]*dims[1]*dims[2];
