@@ -39,6 +39,7 @@ def main():
 
     # load the image and convert it to a floating point data type
     image = img_as_float(io.imread(args["img"]))
+    # get rid of img_as_float in order to color the image crazy
 
     # RUN SLIC
     # default parameters for slic():
