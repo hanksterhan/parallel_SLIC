@@ -20,7 +20,7 @@ Use nvidia-smi to watch the GPU
    - Include -b flag
    - Include -f flag followed by boundary_recall/boundaries plus original image name plus .png extension (ex. boundary_recall/boundaries/3063.png)
  - Save ground truth image as a matlab file in boundary_recall/ground_truth with the original image name (ex. boundary_recall/ground_truth/3063.mat)
- - Run MatLab and navigate to the folder boundary_recall/benchmarks and run boundary_recall.m
+ - Run MatLab ("matlab -nodisplay" in terminal to stay in a command line interface) and navigate to the folder boundary_recall/benchmarks and run boundary_recall.m
  - The third column of boundary_recall/results/eval_bdry_img.txt includes the boundary recall of each image based on the ground truth
  - The sixth column of boundary_recall/results/eval_bdry.txt is the per image, best value of the measure over all available ground truth segmentations used and averaged over all images. 
  
