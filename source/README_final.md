@@ -3,32 +3,60 @@
 Our project does not require any special environment setup, but the library imports need to execute. This means that libraries such as `PyCUDA` and `numpy` must be installed. This code should be run on a computer that has a GPU.
 
 ## To run SLIC
+The required command line arguments are the image and number of superpixels.
+The nuber of superpixels should follow the `-k` flag.
+The filepath of the image to be segmented should follow the `-i` flag.
+For a more detailed breakdown of command line arguments, run: `python SLIC.py -h`.
+
 To run the sequential version of SLIC by skimage:
 
     $ python SLIC.py -k 100 -i input/small.jpg
 
-To run our parallel implementation of SLIC, include the -p flag:
+To run our parallel implementation of SLIC, include the `-p` flag:
 
     $ python SLIC.py -k 100 -i input/small.jpg -p
 
+
 To run SLIC accounting for the compactness factor, m, include the -m flag followed by an integer [1,20]:
 
+    $ python SLIC.py -k 100 -i input/small.jpg -p -m 1
     $ python SLIC.py -k 100 -i input/small.jpg -p -m 20
 
-k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. Both k and i are mandatory arguments. For a more detailed breakdown of command line arguments, run:
+More things to try:
 
-    $ python SLIC.py -h
+    // increase the number of superpixels
+    $ python SLIC.py -k 1000 -i input/small.jpg -p
+
+    // run without enforcing connectivity
+    $ python SLIC.py -k 100 -i input/small.jpg -p -c
+
+    // a larger image - note this will take longer! (obama.jpg is 2687x3356 pixels)
+    $ python SLIC.py -k 1000 -i input/obama.jpg
+
+    // run for more iterations
+    $ python SLIC.py -k 100 -i input/small.jpg -p -n 40
+
+    // suppress image output and save hyperparmeters and timing to a file
+    $ python SLIC.py -k 100 -i input/small.jpg -p -s > temp.csv
+
+
+### Tips on running SLIC
+ - run in the background with `&` and then close all images at once with `killall python`
+ - suppress image output entirely by including `-s` (useful when timing)
+ - run `watch -n 1 nvidia-smi` in a separate terminal to see GPU usage
+ - if you want to see debug messages set `level=lg.DEBUG` in `slic.py` and try running `python SLIC.py -k 6 -i input/tiny.jpg -pc`
+
 
 ## To Calculate Boundary Recall:
  - Choose image from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) and save it in boundary_recall/original_images (ex. boundary_recall/original_images/3063.jpg)
  - Run SLIC.py with the desired command line arguments plus the following:
-   - Include -b flag
-   - Include -f flag followed by boundary_recall/boundaries plus original image name plus .png extension (ex. boundary_recall/boundaries/3063.png)
+   - Include `-b` flag
+   - Include `-f` flag followed by boundary_recall/boundaries plus original image name plus .png extension (ex. boundary_recall/boundaries/3063.png)
 
          $ python SLIC.py -k 100 -i boundary_recall/original_images/3063.jpg -b -f boundary_recall/boundaries/3063.png
 
- - Save ground truth image as a matlab file in boundary_recall/ground_truth with the original image name (ex. boundary_recall/ground_truth/3063.mat) Note: This is found from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) as well
- - Run MatLab ("matlab -nodisplay" in terminal to stay in a command line interface) and navigate to the folder boundary_recall/benchmarks and run:
+ - Save ground truth image as a matlab file in boundary_recall/ground_truth with the original image name (ex. boundary_recall/ground_truth/3063.mat) Note: This is found from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) as well.
+ - Run MatLab (`matlab -nodisplay` in terminal to stay in a command line interface) and navigate (with `cd`) to the folder boundary_recall/benchmarks and run:
 
        $ boundary_recall
 
@@ -39,7 +67,7 @@ k is the number of superpixels and can be adjusted. The filepath of the image to
 
  Note: boundary_recall.m can run benchmarks on multiple pictures at the same time, appropriate naming is crucial to make this work properly.
 
- ## Code Structure
+## Code Structure
 
   - `anchataEtAlCode/` - contains several of the most relevant files from the C++ SLIC implementation by Anchanta et. al. which we downloaded from a zip file. It is long and not very polished (though we added some comments) but was useful in helping us understand the SLIC algorithm. The main function we referenced is `PerformSuperpixelSLIC` beginning on line 505 in `SLIC.cpp`. It is not possible to run this code as it has dependencies on files not in this directory.
   - `boundary_recall/`

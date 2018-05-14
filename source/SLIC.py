@@ -19,7 +19,9 @@ def main():
     ap.add_argument("-c", action="store_false",
         help="Don't enforce connectivity")
     ap.add_argument("-s", action="store_false",
-        help="Run in CSV mode and suppress displaying pictures")
+        help="Run in CSV mode and suppress displaying pictures.\n" + \
+        "Column order is: filename, n, k, parallel, m, slico, connectivity, " +
+        "iter, t_htod, t_kernal, t_dtoh, t_total")
     ap.add_argument("-m", "--compactness", default=10.0, help="Compactness")
     ap.add_argument("-n", "--iter", default=10, help="Number of iterations")
     ap.add_argument("-b", action="store_true",
@@ -32,7 +34,8 @@ def main():
         print "\nrunning SLIC on %s with k=%s" % (args["img"],  args["k"])
         print "  parallel=%s, compactness=%s, slic_zero=%s" % \
             (args["p"], args["compactness"], args["o"])
-        print "  enforce_connectivity=%s, iter=%s\n" % (args["c"], args["iter"])
+        print "  enforce_connectivity=%s, iter=%s" % (args["c"], args["iter"])
+        print "  show_img=%s\n" % (args["s"])
 
     else:
         print "%s, %s, %s, %s, %s, %s, %s," % (args["img"], args["k"],
@@ -54,7 +57,8 @@ def main():
         slic_zero = args["o"],
         enforce_connectivity = args["c"],
         compactness = float(args["compactness"]),
-        max_iter = int(args["iter"])
+        max_iter = int(args["iter"]),
+        print_csv = not args["s"]
     )
 
     # run and save boundary map
@@ -111,7 +115,8 @@ def main():
         plt.axis("off")
 
         # CUDA dyed
-        if args["p"]:
+        if args["p"]: # and not args["c"]:
+            # does not work correctly if connectivity is enforced
             fig = plt.figure("dyed cuda - %s %s %s" %
                 (args["img"], image.shape, centroids_dim))
             ax = fig.add_subplot(1, 1, 1)

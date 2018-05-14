@@ -17,8 +17,10 @@ from cudaSLIC import *
 # set up printing and logging
 np.set_printoptions(threshold = np.inf, linewidth = np.inf)
 import logging as lg
-lg.basicConfig(level=lg.WARN, format='%(message)s')
-#NOTE: set level=lg.DEBUG to see prints, level=lg.WARN to supress prints
+lg.basicConfig(level=lg.INFO, format='%(message)s')
+#NOTE: set level=lg.DEBUG to see all prints,
+#          level=lg.INFO to see just timing prints
+#          level=lg.WARN to supress prints
 
 """
 slic - performs superpixel segmentation using k-means clustering in
@@ -47,6 +49,7 @@ Parameters:
      maximum connected segment size. A value of 3 works in most of the cases.
  - slic_zero: bool, whether to run SLIC-zero, the zero-parameter mode of SLIC.
      Only possible when not running in parallel.
+ - print_csv: bool, whether to print in csv-friendly format
 
 Returns:
  - labels: array with superpixel index for each pixel
@@ -72,7 +75,7 @@ References:
 def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
-         slic_zero=False):
+         slic_zero=False, print_csv=False):
     lg.debug("... starting slic.py ...")
 
 
@@ -164,14 +167,16 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
     tstart = time()
     if parallel:
         labels = slic_cuda(image, centroids, centroids_dim, compactness,
-            max_iter)
+            max_iter, print_csv)
     else:
         labels = _slic_cython(image * ratio, segments, step, max_iter, spacing,
             slic_zero)
-        # print "%s, %s, %s," % (0, 0, 0), # for piping into csv
+        if print_csv: print "%s, %s, %s," % (0, 0, 0), # for piping into csv
     tend = time()
 
     if enforce_connectivity:
+        # use commented line to verify that ascontiguousarray is what
+        # causes mark_cuda_labels to produce unexpected output
         #labels = np.ascontiguousarray(labels.astype(np.intp))
         segment_size = depth * height * width / n_segments
         min_size = int(min_size_factor * segment_size)
@@ -183,7 +188,10 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
             max_size
         )
 
-    print "TIME: ", tend-tstart
+    if print_csv:
+        print tend-tstart
+
+    lg.info("TIME: %s", tend-tstart)
 
     if is_2d:
         labels = labels[0]
@@ -202,12 +210,13 @@ Parameters:
    centroid grid
  - compactness: int, controls lab vs. xy distance weight
  - max_iter: int, specifies number of iterations
+ - print_csv: bool, whether to print in csv-friendly format
 
 Returns:
  - assignments: zyx ordered ndarray of type int32. Encodes the
    superpixel assignment for each pixel.
 """
-def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
+def slic_cuda(image, centroids, centroids_dim, compactness, max_iter, print_csv):
     htod_stream = cuda.Stream()
     kernel_stream = cuda.Stream()
 
@@ -235,7 +244,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
 
     htod_stream.synchronize() # wait for memcpys to complete
     tend1 = time()
-    lg.warn("htod copy time: %s", tend1-tstart1)
+    lg.info("htod copy time: %s", tend1-tstart1)
 
     # debug logs
     lg.debug("dims:")
@@ -259,8 +268,6 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             int(ceil(float(image32.shape[1])/8)), image32.shape[2]),
         stream=kernel_stream
     )
-    # cuda.memcpy_dtoh(assignments, assignments_gpu)
-    # print assignments
 
     # debug logs
     # cuda.memcpy_dtoh(assignments, assignments_gpu)
@@ -298,20 +305,20 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
 
     kernel_stream.synchronize() # wait for kernels to complete
     tend2 = time()
-    lg.warn("   kernel time: %s", tend2-tstart2)
+    lg.info("   kernel time: %s", tend2-tstart2)
 
     tstart3 = time()
     cuda.memcpy_dtoh(assignments, assignments_gpu)
     tend3 = time()
-    lg.warn("dtoh copy time: %s\n", tend3-tstart3)
+    lg.info("dtoh copy time: %s\n", tend3-tstart3)
 
     assignments = np.swapaxes(assignments, 0, 2)
-    #print assignments
     lg.debug("FINAL assignments:")
     lg.debug(assignments)
 
     # for printing to csv
-    # print "%s, %s, %s," % (tend1-tstart1, tend2-tstart2, tend3-tstart3),
+    if print_csv:
+        print "%s, %s, %s," % (tend1-tstart1, tend2-tstart2, tend3-tstart3),
 
     return assignments
 
