@@ -1,3 +1,5 @@
+Our project does not require any special environment setups, but the library imports need to execute. This means that libraries such as PyCuda must be imported and thus the computer this program is run on needs a GPU.
+
 ## To run SLIC 
 To run the sequential version of SLIC by skimage:
  
@@ -13,7 +15,7 @@ To run SLIC accounting for the compactness factor, m, include the -m flag follow
     
 k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. For a more detailed breakdown of command line arguments, run $python SLIC.py -h
 
-## To calculate boundary recall:
+## To Calculate Boundary Recall:
  - Choose image from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) and save it in boundary_recall/original_images (ex. boundary_recall/original_images/3063.jpg)
  - Run SLIC.py with the desired command line arguments plus the following:
    - Include -b flag
