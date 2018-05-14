@@ -3,6 +3,7 @@
     $python SLIC.py -k 100 -i input/flower.jpg
 
 To run our parallel implementation of SLIC, include the -p flag:
+
     $python SLIC.py -k 100 -i input/flower.jpg -p
  
 k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. For a more detailed breakdown of command line arguments, run $python SLIC.py -h
