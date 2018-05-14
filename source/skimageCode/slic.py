@@ -1,8 +1,8 @@
 # coding=utf-8
 
-import collections as coll
+# import collections as coll
 import numpy as np
-from scipy import ndimage as ndi
+# from scipy import ndimage as ndi
 from time import time
 from math import ceil
 
@@ -138,15 +138,15 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         spacing = np.array(spacing, dtype=np.double)
 
     # if sigma is set, perform gaussian smoothing
-    if not isinstance(sigma, coll.Iterable):
-        sigma = np.array([sigma, sigma, sigma], dtype=np.double)
-        sigma /= spacing.astype(np.double)
-    elif isinstance(sigma, (list, tuple)):
-        sigma = np.array(sigma, dtype=np.double)
-    if (sigma > 0).any():
-        # add zero smoothing for multichannel dimension
-        sigma = list(sigma) + [0]
-        image = ndi.gaussian_filter(image, sigma)
+    # if not isinstance(sigma, coll.Iterable):
+    #     sigma = np.array([sigma, sigma, sigma], dtype=np.double)
+    #     sigma /= spacing.astype(np.double)
+    # elif isinstance(sigma, (list, tuple)):
+    #     sigma = np.array(sigma, dtype=np.double)
+    # if (sigma > 0).any():
+    #     # add zero smoothing for multichannel dimension
+    #     sigma = list(sigma) + [0]
+    #     image = ndi.gaussian_filter(image, sigma)
 
     # convert RGB -> LAB
     if multichannel and (convert2lab or convert2lab is None):
@@ -194,7 +194,9 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
     if parallel:
         labels = slic_cuda(image, centroids, centroids_dim, compactness, max_iter)
     else:
-        labels = _slic_cython(image, segments, step, max_iter, spacing, slic_zero)
+        labels = _slic_cython(image * ratio, segments, step, max_iter, spacing, slic_zero)
+        # print "%s, %s, %s," % (0, 0, 0), # for piping into csv
+
     tend = time()
 
     if enforce_connectivity:
@@ -209,7 +211,7 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
             max_size
         )
 
-    print "TIME:", tend-tstart
+    print "TIME: ", tend-tstart
 
     if is_2d:
         labels = labels[0]
@@ -232,6 +234,9 @@ Returns:
  - assignments: zyx ordered ndarray of type int32
 """
 def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
+    htod_stream = cuda.Stream()
+    kernal_stream = cuda.Stream()
+
     # initialize structures and copy to GPU
     tstart1 = time()
     image32 = np.ascontiguousarray(np.swapaxes(image, 0, 2).astype(np.float32)) #xyzc order, float32
@@ -245,12 +250,13 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     centroids_dim_gpu = cuda.mem_alloc(centroids_dim.nbytes)
     assignments_gpu = cuda.mem_alloc(assignments.nbytes)
 
-    cuda.memcpy_htod(image_gpu, image32)
-    cuda.memcpy_htod(img_dim_gpu, img_dim)
-    cuda.memcpy_htod(centroids_gpu, centroids)
-    cuda.memcpy_htod(centroids_dim_gpu, centroids_dim)
+    cuda.memcpy_htod_async(image_gpu, image32, stream=htod_stream)
+    cuda.memcpy_htod_async(img_dim_gpu, img_dim, stream=htod_stream)
+    cuda.memcpy_htod_async(centroids_gpu, centroids, stream=htod_stream)
+    cuda.memcpy_htod_async(centroids_dim_gpu, centroids_dim, stream=htod_stream)
     # don't need to copy assignments to gpu because first_assignments_func initializes this memory
 
+    htod_stream.synchronize()
     tend1 = time()
     lg.warn("htod copy time: %s", tend1-tstart1)
 
@@ -270,7 +276,8 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
         centroids_dim_gpu,
         assignments_gpu,
         block=(128,8,1),
-        grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
+        grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2]),
+        stream=kernal_stream
     )
     # cuda.memcpy_dtoh(assignments, assignments_gpu)
     # print assignments
@@ -283,7 +290,6 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     # lg.debug(centroids)
 
     # iteratively updated centroids and assignments
-    print "before the loop"
     for i in range(max_iter):
         recompute_centroids_func(
             image_gpu,
@@ -292,7 +298,8 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             centroids_dim_gpu,
             assignments_gpu,
             block=(128,8,1),
-            grid=(int(ceil(float(centroids_dim_int[0])/128)), int(ceil(float(centroids_dim_int[1])/8)), centroids_dim_int[2])
+            grid=(int(ceil(float(centroids_dim_int[0])/128)), int(ceil(float(centroids_dim_int[1])/8)), centroids_dim_int[2]),
+            stream=kernal_stream
         )
 
         update_assignments_func(
@@ -303,8 +310,11 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             assignments_gpu,
             np.int32(compactness),
             block=(128,8,1),
-            grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2])
+            grid=(int(ceil(float(image32.shape[0])/128)), int(ceil(float(image32.shape[1])/8)), image32.shape[2]),
+            stream=kernal_stream
         )
+
+    kernal_stream.synchronize()
     tend2 = time()
     lg.warn("   kernel time: %s", tend2-tstart2)
 
@@ -317,6 +327,9 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     #print assignments
     lg.debug("FINAL assignments:")
     lg.debug(assignments)
+
+    # for printing to csv
+    # print "%s, %s, %s," % (tend1-tstart1, tend2-tstart2, tend3-tstart3),
 
     return assignments
 

@@ -16,6 +16,7 @@ def main():
     ap.add_argument("-p", action = "store_true", help = "Run parallel CUDA version")
     ap.add_argument("-o", action = "store_true", help = "Run SLICO (ignores m)")
     ap.add_argument("-c", action = "store_false", help = "Don't enforce connectivity")
+    ap.add_argument("-s", action = "store_false", help = "Run in CSV mode and suppress displaying pictures")
     ap.add_argument("-m", "--compactness", default = 10.0, help = "Compactness")
     ap.add_argument("-n", "--iter", default = 10, help = "Number of iterations")
     ap.add_argument("-b", action = "store_true", help = "Save Hard Boundary Map for Boundary Recall")
@@ -26,17 +27,21 @@ def main():
     image = img_as_float(io.imread(args["img"]))
 
     # show initial image
-    fig = plt.figure("%s %s -- original" % (args["img"], image.shape))
-    ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(image)
-    plt.axis("off")
+    if args["s"]:
+        fig = plt.figure("%s %s -- original" % (args["img"], image.shape))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.imshow(image)
+        plt.axis("off")
+        print "%s, %s, %s, %s, %s, %s, %s," % (args["img"],  args["k"], args["p"], args["compactness"], args["o"], args["c"], args["iter"]),
+
+
+    else:
+        print "\nrunning SLIC on %s with k=%s" % (args["img"],  args["k"])
+        print "  parallel=%s, compactness=%s, slic_zero=%s" % \
+            (args["p"], args["compactness"], args["o"])
+        print "  enforce_connectivity=%s, iter=%s\n" % (args["c"], args["iter"])
 
     # RUN SLIC
-    print "\nrunning SLIC on %s with k=%s" % (args["img"],  args["k"])
-    print "  parallel=%s, compactness=%s, slic_zero=%s" % \
-        (args["p"], args["compactness"], args["o"])
-    print "  enforce_connectivity=%s, iter=%s\n" % (args["c"], args["iter"])
-
     # default parameters for slic():
     #   n_segments=100, compactness=10.0, max_iter=10, sigma=0, spacing=None,
     #   multichannel=True, convert2lab=None, enforce_connectivity=True,
@@ -58,10 +63,12 @@ def main():
         #       y=x line possibly due to np.ascontiguousarray
         image_cuda = image[np.newaxis, ...]
         image_colored_cuda = mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
-        fig = plt.figure("%s %s -- dyed cuda %s" % (args["img"], image.shape, centroids_dim))
-        ax = fig.add_subplot(1, 1, 1)
-        ax.imshow(image_colored_cuda)
-        plt.axis("off")
+
+        if(args["s"]):
+            fig = plt.figure("%s %s -- dyed cuda %s" % (args["img"], image.shape, centroids_dim))
+            ax = fig.add_subplot(1, 1, 1)
+            ax.imshow(image_colored_cuda)
+            plt.axis("off")
 
         image_colored = label2rgb(segments, image, kind = "avg")
 
@@ -87,24 +94,24 @@ def main():
     image_segmented = mark_boundaries(image, segments, mode='inner')
 
     # show the output of SLIC
-    fig = plt.figure("%s %s -- mosaic %s" % (args["img"], image.shape, centroids_dim))
-    ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(image_segmented)
-    plt.axis("off")
-    fig = plt.figure("%s %s -- dyed skimage %s" % (args["img"], image.shape, centroids_dim))
-    ax2 = fig.add_subplot(1, 1, 1)
-    ax2.imshow(image_colored)
-    plt.axis("off")
-
-    if args["b"]:
-        fig = plt.figure("%s %s -- boundary map %s" % (args["img"], image.shape, centroids_dim))
-        ax3 = fig.add_subplot(1, 1, 1)
-        ax3.imshow(boundary_map, cmap="gray")
+    if(args["s"]):
+        fig = plt.figure("%s %s -- mosaic %s" % (args["img"], image.shape, centroids_dim))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.imshow(image_segmented)
+        plt.axis("off")
+        fig = plt.figure("%s %s -- dyed skimage %s" % (args["img"], image.shape, centroids_dim))
+        ax2 = fig.add_subplot(1, 1, 1)
+        ax2.imshow(image_colored)
         plt.axis("off")
 
+        if args["b"]:
+            fig = plt.figure("%s %s -- boundary map %s" % (args["img"], image.shape, centroids_dim))
+            ax3 = fig.add_subplot(1, 1, 1)
+            ax3.imshow(boundary_map, cmap="gray")
+            plt.axis("off")
 
-    # show the plots
-    plt.show()
+        # show the plots
+        plt.show()
 
 if __name__=="__main__":
     main()
