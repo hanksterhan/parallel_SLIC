@@ -1,5 +1,6 @@
 ## To run SLIC Superpixel Algorithm
- - $python SLIC.py -k 100 -i input/flower.jpg
+ 
+  $python SLIC.py -k 100 -i input/flower.jpg
 
 To run our parallel implementation of SLIC, include the -p flag:
  - $python SLIC.py -k 100 -i input/flower.jpg -p
