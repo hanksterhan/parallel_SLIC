@@ -26,16 +26,8 @@ def main():
     ap.add_argument("-f", help="Output filepath for Boundary Map")
     args = vars(ap.parse_args())
 
-    # load the image and convert it to a floating point data type
-    image = img_as_float(io.imread(args["img"]))
-
-    # show initial image
+    # print parameters
     if args["s"]:
-        fig = plt.figure("%s %s -- original" % (args["img"], image.shape))
-        ax = fig.add_subplot(1, 1, 1)
-        ax.imshow(image)
-        plt.axis("off")
-
         print "\nrunning SLIC on %s with k=%s" % (args["img"],  args["k"])
         print "  parallel=%s, compactness=%s, slic_zero=%s" % \
             (args["p"], args["compactness"], args["o"])
@@ -45,10 +37,12 @@ def main():
         print "%s, %s, %s, %s, %s, %s, %s," % (args["img"], args["k"],
             args["p"], args["compactness"], args["o"], args["c"], args["iter"]),
 
+    # load the image and convert it to a floating point data type
+    image = img_as_float(io.imread(args["img"]))
 
     # RUN SLIC
     # default parameters for slic():
-    #   n_segments=100, compactness=10.0, max_iter=10, sigma=0, spacing=None,
+    #   n_segments=100, compactness=10.0, max_iter=10, spacing=None,
     #   multichannel=True, convert2lab=None, enforce_connectivity=True,
     #   min_size_factor=0.5, max_size_factor=3, slic_zero=False
     segments, centroids_dim = slic(
@@ -61,29 +55,7 @@ def main():
         max_iter = int(args["iter"])
     )
 
-    # display resulting image
-    if args["p"]:
-        # color image by superpixel averages
-        # TODO: use this parallelized version, is currently reflected across
-        #       y=x line possibly due to np.ascontiguousarray
-        image_cuda = image[np.newaxis, ...]
-        image_colored_cuda = \
-            mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
-
-        if(args["s"]):
-            fig = plt.figure("%s %s -- dyed cuda %s" %
-                (args["img"], image.shape, centroids_dim))
-            ax = fig.add_subplot(1, 1, 1)
-            ax.imshow(image_colored_cuda)
-            plt.axis("off")
-
-        image_colored = label2rgb(segments, image, kind = "avg")
-
-    else:
-        # color image by superpixel averages
-        image_colored = label2rgb(segments, image, kind = "avg")
-
-    # Run and save boundary map
+    # run and save boundary map
     if args["b"]:
         # find boundaries, returns a 2D array of integers.
         # 0 for black, 1 for white boundary
@@ -99,24 +71,55 @@ def main():
         # save image
         io.imsave(args["f"], boundary_map)
 
+    # DISPLAY SEGMENTS
+    # optionally color image by superpixel averages with CUDA
+    if args["p"]:
+        # color image by superpixel averages
+        # TODO: use this parallelized version, is currently reflected across
+        #       y=x line possibly due to np.ascontiguousarray
+        image_cuda = image[np.newaxis, ...]
+        image_colored_cuda = \
+            mark_cuda_labels(image_cuda, centroids_dim, segments)[0]
+
+    # color image by superpixel averages
+    image_colored = label2rgb(segments, image, kind = "avg")
+
     # superimpose superpixels onto image
     image_segmented = mark_boundaries(image, segments, mode='inner')
 
     # show the output of SLIC
     if(args["s"]):
-        fig = plt.figure("%s %s -- mosaic %s" %
+        # original
+        fig = plt.figure("original - %s %s" % (args["img"], image.shape))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.imshow(image)
+        plt.axis("off")
+
+        # mosaic
+        fig = plt.figure("mosaic - %s %s %s" %
             (args["img"], image.shape, centroids_dim))
         ax = fig.add_subplot(1, 1, 1)
         ax.imshow(image_segmented)
         plt.axis("off")
-        fig = plt.figure("%s %s -- dyed skimage %s" %
+
+        # dyed
+        fig = plt.figure("dyed skimage - %s %s %s" %
             (args["img"], image.shape, centroids_dim))
         ax2 = fig.add_subplot(1, 1, 1)
         ax2.imshow(image_colored)
         plt.axis("off")
 
+        # CUDA dyed
+        if args["p"]:
+            fig = plt.figure("dyed cuda - %s %s %s" %
+                (args["img"], image.shape, centroids_dim))
+            ax = fig.add_subplot(1, 1, 1)
+            ax.imshow(image_colored_cuda)
+            plt.axis("off")
+
+        # boundary map
         if args["b"]:
-            fig = plt.figure("%s %s -- boundary map %s" %
+            fig = plt.figure("boundary map - %s %s %s" %
                 (args["img"], image.shape, centroids_dim))
             ax3 = fig.add_subplot(1, 1, 1)
             ax3.imshow(boundary_map, cmap="gray")

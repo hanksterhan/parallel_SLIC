@@ -1,8 +1,6 @@
 # coding=utf-8
 
-# import collections as coll
 import numpy as np
-# from scipy import ndimage as ndi
 from time import time
 from math import ceil
 
@@ -26,7 +24,7 @@ import logging as lg
 lg.basicConfig(level=lg.WARN, format='%(message)s')
 #NOTE: set level=lg.DEBUG to see prints, level=lg.WARN to supress prints
 
-def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sigma=0,
+def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10,
          spacing=None, multichannel=True, convert2lab=None,
          enforce_connectivity=True, min_size_factor=0.5, max_size_factor=3,
          slic_zero=False):
@@ -43,18 +41,8 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         Balances color proximity and space proximity. Higher values give
         more weight to space proximity, making superpixel shapes more
         square/cubic. In SLICO mode, this is the initial compactness.
-        This parameter depends strongly on image contrast and on the
-        shapes of objects in the image. We recommend exploring possible
-        values on a log scale, e.g., 0.01, 0.1, 1, 10, 100, before
-        refining around a chosen value.
     max_iter : int, optional
         Maximum number of iterations of k-means.
-    sigma : float or (3,) array-like of floats, optional
-        Width of Gaussian smoothing kernel for pre-processing for each
-        dimension of the image. The same sigma is applied to each dimension in
-        case of a scalar value. Zero means no smoothing.
-        Note, that `sigma` is automatically scaled if it is scalar and a
-        manual voxel spacing is provided (see Notes section).
     spacing : (3,) array-like of floats, optional
         The voxel spacing along each image dimension. By default, `slic`
         assumes uniform spacing (same voxel resolution along z, y and x).
@@ -89,12 +77,6 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         dimension is not of length 3.
     Notes
     -----
-    * If `sigma > 0`, the image is smoothed using a Gaussian kernel prior to
-      segmentation.
-    * If `sigma` is scalar and `spacing` is provided, the kernel width is
-      divided along each dimension by the spacing. For example, if ``sigma=1``
-      and ``spacing=[5, 1, 1]``, the effective `sigma` is ``[0.2, 1, 1]``. This
-      ensures sensible smoothing for anisotropic images.
     * The image is rescaled to be in [0, 1] prior to processing.
     * Images of shape (M, N, 3) are interpreted as 2D RGB images by default. To
       interpret them as 3D with the last dimension having length 3, use
@@ -136,17 +118,6 @@ def slic(image, parallel=True, n_segments=100, compactness=10., max_iter=10, sig
         spacing = np.ones(3)
     elif isinstance(spacing, (list, tuple)):
         spacing = np.array(spacing, dtype=np.double)
-
-    # if sigma is set, perform gaussian smoothing
-    # if not isinstance(sigma, coll.Iterable):
-    #     sigma = np.array([sigma, sigma, sigma], dtype=np.double)
-    #     sigma /= spacing.astype(np.double)
-    # elif isinstance(sigma, (list, tuple)):
-    #     sigma = np.array(sigma, dtype=np.double)
-    # if (sigma > 0).any():
-    #     # add zero smoothing for multichannel dimension
-    #     sigma = list(sigma) + [0]
-    #     image = ndi.gaussian_filter(image, sigma)
 
     # convert RGB -> LAB
     if multichannel and (convert2lab or convert2lab is None):
@@ -240,7 +211,7 @@ Returns:
 """
 def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
     htod_stream = cuda.Stream()
-    kernal_stream = cuda.Stream()
+    kernel_stream = cuda.Stream()
 
     # initialize structures and copy to GPU
     tstart1 = time()
@@ -277,7 +248,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
         centroids.dtype, centroids_dim.dtype)
     lg.debug("  assignments %s %s", assignments.shape, assignments.dtype)
 
-    # done with copies, begin timing and call kernals
+    # done with copies, begin timing and call kernels
     tstart2 = time()
 
     # initialize pixel-centroid assignments
@@ -288,7 +259,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
         block=(128,8,1),
         grid=(int(ceil(float(image32.shape[0])/128)),
             int(ceil(float(image32.shape[1])/8)), image32.shape[2]),
-        stream=kernal_stream
+        stream=kernel_stream
     )
     # cuda.memcpy_dtoh(assignments, assignments_gpu)
     # print assignments
@@ -311,7 +282,7 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             block=(128,8,1),
             grid=(int(ceil(float(centroids_dim_int[0])/128)),
                 int(ceil(float(centroids_dim_int[1])/8)), centroids_dim_int[2]),
-            stream=kernal_stream
+            stream=kernel_stream
         )
 
         update_assignments_func(
@@ -324,10 +295,10 @@ def slic_cuda(image, centroids, centroids_dim, compactness, max_iter):
             block=(128,8,1),
             grid=(int(ceil(float(image32.shape[0])/128)),
                 int(ceil(float(image32.shape[1])/8)), image32.shape[2]),
-            stream=kernal_stream
+            stream=kernel_stream
         )
 
-    kernal_stream.synchronize()
+    kernel_stream.synchronize()
     tend2 = time()
     lg.warn("   kernel time: %s", tend2-tstart2)
 
