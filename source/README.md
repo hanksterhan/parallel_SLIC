@@ -25,4 +25,5 @@ Use nvidia-smi to watch the GPU
  - The sixth column of boundary_recall/results/eval_bdry.txt is the per image, best value of the measure over all available ground truth segmentations used and averaged over all images. 
  
  Note: The 3 file must all have the same name, just with different file extensions (ex. 3063.jpg, 3063.png, 3063.mat)
- \nNote: boundary_recall.m can run benchmarks on multiple pictures at the same time, appropriate naming is crucial to make this work properly. 
+ 
+ Note: boundary_recall.m can run benchmarks on multiple pictures at the same time, appropriate naming is crucial to make this work properly. 
