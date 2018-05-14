@@ -28,7 +28,7 @@ k is the number of superpixels and can be adjusted. The filepath of the image to
  - Save ground truth image as a matlab file in boundary_recall/ground_truth with the original image name (ex. boundary_recall/ground_truth/3063.mat) Note: This is found from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) as well
  - Run MatLab ("matlab -nodisplay" in terminal to stay in a command line interface) and navigate to the folder boundary_recall/benchmarks and run: 
  
-     $boundary_recall.m
+         $boundary_recall
      
  - The third column of boundary_recall/results/eval_bdry_img.txt includes the boundary recall of each image based on the ground truth
  - The sixth column of boundary_recall/results/eval_bdry.txt is the per image, best value of the measure over all available ground truth segmentations used and averaged over all images. 
