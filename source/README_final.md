@@ -41,8 +41,22 @@ k is the number of superpixels and can be adjusted. The filepath of the image to
 
  ## Code Structure
 
-  - /anchataEtAlCode
-  - /boundary_recall
-  - /input
-  - /skimageCode
-  - /
+  - `anchataEtAlCode/` - contains several of the most relevant files from the C++ SLIC implementation by Anchanta et. al. which we downloaded from a zip file. It is long and not very polished (though we added some comments) but was useful in helping us understand the SLIC algorithm. The main function we referenced is `PerformSuperpixelSLIC` beginning on line 505 in `SLIC.cpp`. It is not possible to run this code as it has dependencies on files not in this directory.
+  - `boundary_recall/`
+    - `benchmarks/` and `source/`- matlab code for calculating boundary recall, copied from [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) git repo
+    - `results*/` - txt files with experimental results from different trials
+    - `boundaries*/` and `original_images/` - input files for boundary recall experiments
+  - `experiments/` - scripts we used to generate timing and boundary recall results as well as resulting files from timing tests. `time04.csv` contains the timing data used in our final report.
+  - `input/` - input images
+    - `frog*.jpg` - images used to generate timing results
+    - `tiny.jpg`, `mini.jpg`, `small.jpg` - main images that we used for debugging
+    - `ahuizotl.jpg`, `flower.jpg`, `mountain.jpg`, `obama.jpg` - larger images that we used for debugging
+  - `skimageCode/`
+    - `cudaSLIC.py` - CUDA kernels used by `slic.py`
+    - `rgb2lab.py` - code to do parallelized image pre-processing. Not included in our slic pipeline.
+    - `slic.py` - main file containing code for slic. Defines 3 functions:
+      - `slic()` - performs image pre and post processing and calls skimage code for sequential segmentation or `slic_cuda` for parallelized segmentation
+      - `slic_cuda()` - performs parallelized segmentation by calling kernels in `cudaSLIC.py`
+      - `mark_cuda_labels()` - colors image in parallel based on average colors of each superpixel
+  - `pycuda_tutorial.py` - test code for learning pycuda, somewhat modified from the original tutorial.
+  - `SLIC.py` - RUN THIS FILE. It processes command line arguments, calls `slic()`, and displays the results.
