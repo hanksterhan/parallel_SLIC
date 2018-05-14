@@ -3,7 +3,7 @@
     $python SLIC.py -k 100 -i input/flower.jpg
 
 To run our parallel implementation of SLIC, include the -p flag:
- - $python SLIC.py -k 100 -i input/flower.jpg -p
+    $python SLIC.py -k 100 -i input/flower.jpg -p
  
 k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. For a more detailed breakdown of command line arguments, run $python SLIC.py -h
 
@@ -12,7 +12,7 @@ k is the number of superpixels and can be adjusted. The filepath of the image to
  - Run SLIC.py with the desired command line arguments plus the following:
    - Include -b flag
    - Include -f flag followed by boundary_recall/boundaries plus original image name plus .png extension (ex. boundary_recall/boundaries/3063.png)
-   - ex: $python SLIC.py -k 100 -i boundary_recall/original_images/3063.jpg -b -f boundary_recall/boundaries/3063.png
+    $python SLIC.py -k 100 -i boundary_recall/original_images/3063.jpg -b -f boundary_recall/boundaries/3063.png
  - Save ground truth image as a matlab file in boundary_recall/ground_truth with the original image name (ex. boundary_recall/ground_truth/3063.mat) Note: This is found from the [Extended Berkeley Segmentation Benchmark](https://github.com/davidstutz/extended-berkeley-segmentation-benchmark) as well
  - Run MatLab ("matlab -nodisplay" in terminal to stay in a command line interface) and navigate to the folder boundary_recall/benchmarks and run $boundary_recall.m
  - The third column of boundary_recall/results/eval_bdry_img.txt includes the boundary recall of each image based on the ground truth
