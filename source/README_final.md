@@ -1,4 +1,4 @@
-Our project does not require any special environment setups, but the library imports need to execute. This means that libraries such as PyCuda must be imported and thus the computer this program is run on requires a GPU.
+Our project does not require any special environment setups, but the library imports need to execute. This means that libraries such as PyCuda must be imported and thus a GPU is required on the computer this program is run on.
 
 ## To run SLIC
 To run the sequential version of SLIC by skimage:
@@ -13,8 +13,7 @@ To run SLIC accounting for the compactness factor, m, include the -m flag follow
 
     $python SLIC.py -k 100 -i input/small.jpg -p -m 20
 
-k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. Both k and i are mandatory arguments.
-For a more detailed breakdown of command line arguments, run:
+k is the number of superpixels and can be adjusted. The filepath of the image to be segmented should follow the -i flag. Both k and i are mandatory arguments. For a more detailed breakdown of command line arguments, run:
 
     $python SLIC.py -h
 
